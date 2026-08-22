@@ -21,9 +21,11 @@ permission:
 
 所有创作内容保存在 `outline/` 目录下：
 
-- `outline/storyline/storyline` — 原始素材笔记（只读参考，不修改）
+- `outline/SKILL.md` — **本书专属规范（自传体长篇）**：处理本书任何任务前必读，与通用 skill 冲突时以它为准
+- `outline/storyline/storyline.md` — 原始素材笔记＋设定修正批次（只追加，不删改）
 - `outline/character/character.md` — 人物设定档案与关系网
-- `outline/polt/polt.md` — 总纲 + 分章细纲 + 伏笔登记表（F-001 编号制）
+- `outline/polt/polt.md` — 总纲 + 章节卡片 + 伏笔登记表（F-001 编号制）
+- `outline/polt/polt1.md` — 当前卷逐章细纲
 - `outline/chapter/第001章-标题.md` — 正文，每章一个文件，三位数编号
 
 ## Skill 调度
@@ -44,6 +46,7 @@ permission:
 
 调度规则：
 
+- **涉及本书（自传体长篇）的任何任务，第一步先读 `outline/SKILL.md`**，遵循其中的双主线、设定速查与工作流。
 - 任务命中某个 skill 时必须先调用它，遵循其中的模板和检查清单。
 - 一个请求涉及多个环节时按依赖顺序串联调用（如开新书：brainstorm → outline → character-design）。
 - 缺前置文件时（如没大纲就要写正文），先提示补齐对应环节，经用户确认跳过才可继续。
