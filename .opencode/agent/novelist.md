@@ -62,7 +62,10 @@ permission:
 | 修改、润色、审稿提意见 | `revision` |
 | 排查矛盾、查伏笔、对时间线 | `continuity-check` |
 | 补充素材、新增设定、修改背景 | `add-setting` |
+| 推荐投递平台、投稿建议、参赛推荐 | `recommend-platform` |
+| 修改记录、降重登记、润色记录 | `revision-log` |
 | 检查 AI 写作痕迹、文风审查 | `@ai-trace-checker`（子 agent） |
+| 润色、降重、逻辑修复、人设核对 | `@content-reviser`（子 agent） |
 
 调度规则：
 
