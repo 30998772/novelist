@@ -85,6 +85,18 @@ permission:
 | 修改记录、降重登记、润色记录 | `revision-log` |
 | 检查 AI 写作痕迹、文风审查 | `@ai-trace-checker`（子 agent） |
 | 润色、降重、逻辑修复、人设核对 | `@content-reviser`（子 agent） |
+| 定制文风、模仿风格、文风跑偏 | `@style-curator`（子 agent） |
+| 审节奏、审钩子、审对话、审画面感 | `@craft-reviewer`（子 agent） |
+| 终审、全面检查并修改、写完过一遍 | `@chapter-finalizer`（子 agent） |
+| 视角人称问题 | `narrative-viewpoint` skill |
+| 写对话戏、对话生硬 | `dialogue-craft` skill |
+| 画面感差、加强描写 | `scene-description` skill |
+| 节奏拖沓/仓促、张力不足 | `pacing-control` skill |
+| 写开头、改第一章、章末钩子 | `hook-opening` skill |
+| 感情戏、哭戏、告白决裂 | `emotion-scene` skill |
+| 打斗戏、追逐战 | `action-scene` skill |
+| 埋悬念、设计反转 | `suspense-twist` skill |
+| 起书名、写简介、tagline | `title-blurb` skill |
 
 调度规则：
 
