@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "writer-interval-agent": {
+      "type": "local",
+      "command": ["python", "D:/devProject/writer/langgraph-writer/run_agent.py", "mcp"],
+      "enabled": true,
+      "environment": {
+        "LLM_API_KEY": "${env:LLM_API_KEY}",
+        "LLM_BASE_URL": "${env:LLM_BASE_URL:https://api.openai.com/v1}",
+        "LLM_MODEL": "${env:LLM_MODEL:gpt-4o-mini}"
+      }
+    }
+  }
+}
