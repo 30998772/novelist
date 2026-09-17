@@ -1,0 +1,18 @@
+{
+  "id": "outline",
+  "name": "大纲",
+  "agent": "novelist",
+  "inputs": {
+    "task": { "type": "string", "required": true },
+    "research_notes": { "type": "string", "required": true },
+    "project_dir": { "type": "string", "required": false }
+  },
+  "outputs": {
+    "outline": { "type": "string", "description": "章节大纲正文" }
+  },
+  "output_file": {
+    "file": "章节大纲/逐章卡片.md",
+    "output_keys": ["outline"],
+    "append": true
+  }
+}

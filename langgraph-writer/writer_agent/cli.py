@@ -50,6 +50,9 @@ def parse_args(argv=None):
         prog="writer-agent",
         description="区间式小说创作 Agent (LangGraph)",
     )
+    parser.add_argument("--agent", help="选择 agent 图: novelist / content_reviser / ai_trace_checker / craft_reviewer / style_curator / chapter_finalizer / writer_workflow / base_rag / plan_execute_agent / reflexion; 提供时用 --message 发指令")
+    parser.add_argument("--message", help="发给 agent 的中文指令 (--agent 模式)")
+    parser.add_argument("--project", help="小说项目目录 (供 agent 的文件工具使用, 默认当前目录)")
     parser.add_argument("--start", default="research", help="起始阶段")
     parser.add_argument("--end", default="finalize", help="结束阶段")
     parser.add_argument("--task", help="任务描述")
@@ -62,11 +65,29 @@ def parse_args(argv=None):
     parser.add_argument("--interactive", action="store_true", help="阶段间暂停供人工介入")
     parser.add_argument("--silent", action="store_true", help="只输出结果, 不打印日志")
     parser.add_argument("--list-stages", action="store_true", help="列出阶段并退出")
+    parser.add_argument("--list-agents", action="store_true", help="列出所有 agent 图并退出")
     parser.add_argument("--output", help="将最终输出写入该文件")
     parser.add_argument("--model", help="覆盖 LLM_MODEL 环境变量")
     parser.add_argument("--base-url", help="覆盖 LLM_BASE_URL")
     parser.add_argument("--api-key", help="覆盖 LLM_API_KEY")
+    parser.add_argument(
+        "text", nargs="*",
+        help="裸中文指令（等价于 --message；未指定 --agent 时默认 novelist）",
+    )
     return parser.parse_args(argv)
+
+
+def resolve_agent_message(args) -> None:
+    """便捷入口：把裸中文指令收进 --message，并在未指定时默认 novelist。
+
+    让 `run_agent.py cli 帮我写第7章` 等价于
+    `run_agent.py cli --agent novelist --message "帮我写第7章"`。
+    """
+    free_text = " ".join(args.text).strip() if getattr(args, "text", None) else ""
+    if not args.message and free_text:
+        args.message = free_text
+    if args.message and not args.agent:
+        args.agent = "novelist"
 
 
 def _handshake_interrupt(graph, snapshot, config):
@@ -164,6 +185,32 @@ def main(argv=None) -> int:
     if not os.environ.get("LLM_API_KEY"):
         print("错误: 未设置 LLM_API_KEY (可在 cli.py 同目录 .env 配置)", file=sys.stderr)
         return 2
+
+    resolve_agent_message(args)
+
+    # agent 图模式: 由选定 agent 解析指令并调用 skill 工具
+    if args.agent:
+        from .app import run_agent
+
+        if not args.message:
+            print("错误: --agent 模式需要 --message 指令", file=sys.stderr)
+            return 2
+        print(f"[writer-agent] 执行 agent: {args.agent}")
+        output = run_agent(
+            args.agent,
+            args.message,
+            project_dir=args.project,
+            start=args.start,
+            end=args.end,
+        )
+        print("\n========= 输出 =========")
+        print(output)
+        print("========= 结束 =========")
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as fh:
+                fh.write(output)
+            print(f"\n已写入: {args.output}")
+        return 0
 
     state = build_initial_state(args)
     if not args.silent:

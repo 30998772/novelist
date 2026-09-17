@@ -125,11 +125,15 @@ def outline_node(state: WriterState) -> dict:
 
 @register_stage("draft")
 def draft_node(state: WriterState) -> dict:
-    """写稿：基于大纲撰写章节正文。"""
+    """写稿：基于大纲撰写章节正文。
+
+    若因校验失败回跳（state.check_error 非空），在提示词中带上失败原因。
+    """
     llm = get_llm()
     iteration = int(state.get("iteration", 0))
     review_notes = state.get("review_notes", [])
     input_data = state.get("input_data") or {}
+    check_error = state.get("check_error") or ""
 
     target_len = input_data.get("target_word_count", 3200)
 
@@ -142,8 +146,23 @@ def draft_node(state: WriterState) -> dict:
 
 审稿意见:
 {chr(10).join('- ' + n for n in review_notes)}
+{f'需修正的硬性检查不通过项:\n{check_error}' if check_error else ''}
 
 产出完整新稿, 目标约 {target_len} 字。"""
+    elif check_error:
+        # 校验失败回跳写稿
+        prompt = f"""你是小说作家。上一版草稿未通过硬性检查，请按提示重写完整章节正文。
+
+硬性检查不通过的原因:
+{check_error}
+
+大纲:
+{_first_text(state, 'outline')}
+
+要求:
+- 只修正检查指出的问题，保留原稿好的部分与剧情骨架
+- 目标篇幅约 {target_len} 中文字符
+- 直接输出完整重写稿正文, 不要标题与解释"""
     else:
         prompt = f"""你是小说作家。请按以下大纲撰写章节正文。
 
@@ -160,7 +179,7 @@ def draft_node(state: WriterState) -> dict:
     resp = llm.invoke([HumanMessage(content=prompt)])
     draft = resp.content.strip()
     return {
-        **{"draft": draft, "iteration": iteration + 1},
+        **{"draft": draft, "iteration": iteration + 1, "check_error": ""},
         **{"messages": [AIMessage(content=f"草稿完成(第{iteration + 1}版), 约 {len(draft)} 字")]},
     }
 
@@ -257,3 +276,69 @@ def finalize_node(state: WriterState) -> dict:
         **{"final_content": body},
         **{"messages": [AIMessage(content="定稿完成")]},
     }
+
+
+# --- 确定性 code 节点（不经 LLM，纯 Python 校验） ---
+
+import re as _re
+
+_CJK_RE = _re.compile(r"[\u4e00-\u9fff]")
+
+# 默认禁用词（AI 高频词/写作铁律）
+DEFAULT_BLACKLIST = ["微微", "轻轻", "缓缓", "某种", "仿佛", "似乎", "像是", "像一把"]
+
+
+def _check_range(target: int, check_input: dict) -> tuple[int, int]:
+    """由 target 或显式 min/max 推出字数允许区间。"""
+    lo = check_input.get("min_word_count")
+    hi = check_input.get("max_word_count")
+    if lo is None:
+        lo = int(target * 0.9)
+    if hi is None:
+        hi = int(target * 1.1)
+    return lo, hi
+
+
+@register_stage("check_word_count")
+def check_word_count_node(state: WriterState) -> dict:
+    """【code 节点】统计草稿中文字符数，校验是否落进目标区间。
+
+    失败时写 check_error 并返回 loop_back_to=draft，由路由函数决定回跳。
+    """
+    draft = _first_text(state, "draft")
+    input_data = state.get("input_data") or {}
+    target = int(input_data.get("target_word_count", 3200))
+    lo, hi = _check_range(target, input_data)
+
+    count = len(_CJK_RE.findall(draft))
+    passed = lo <= count <= hi
+    state.update({"cjk_count": count})
+
+    if not passed:
+        state["check_error"] = f"字数校验失败: 中文字符 {count} 个，目标区间 [{lo}, {hi}]（target {target}）。请扩写/精简到区间内。"
+        msg = AIMessage(content=f"✗ 字数校验: {count}/{target} 字 (区间 {lo}-{hi})，回跳 draft 重写")
+    else:
+        state["check_error"] = ""
+        msg = AIMessage(content=f"✓ 字数校验: {count}/{target} 字 (区间 {lo}-{hi})")
+    return {"messages": [msg], "cjk_count": count, "check_error": state["check_error"]}
+
+
+@register_stage("check_blacklist")
+def check_blacklist_node(state: WriterState) -> dict:
+    """【code 节点】扫描草稿中的禁用词，全部命中则回跳 draft。
+
+    禁用词来源: input_data.blacklist_words，缺省用 DEFAULT_BLACKLIST。
+    """
+    draft = _first_text(state, "draft")
+    input_data = state.get("input_data") or {}
+    words = input_data.get("blacklist_words") or DEFAULT_BLACKLIST
+    hits = [w for w in words if w and w in draft]
+    state["blacklist_hits"] = hits
+
+    if hits:
+        state["check_error"] = f"禁用词扫描失败: 命中 {hits}。请替换为自然表达后重新输出完整正文。"
+        msg = AIMessage(content=f"✗ 禁用词扫描: 命中 {hits}，回跳 draft 重写")
+    else:
+        state["check_error"] = ""
+        msg = AIMessage(content="✓ 禁用词扫描: 未命中")
+    return {"messages": [msg], "blacklist_hits": hits, "check_error": state["check_error"]}

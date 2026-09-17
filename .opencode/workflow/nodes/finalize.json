@@ -1,0 +1,16 @@
+{
+  "id": "finalize",
+  "name": "定稿",
+  "agent": "novelist",
+  "inputs": {
+    "draft_content": { "type": "string", "required": true },
+    "review_notes": { "type": "array", "required": false }
+  },
+  "outputs": {
+    "final_content": { "type": "string", "description": "最终定稿正文" }
+  },
+  "output_file": {
+    "file": "正文/{volume}/第{chapter_num}章-{chapter_title}.md",
+    "output_keys": ["final_content"]
+  }
+}

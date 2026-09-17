@@ -10,7 +10,7 @@
     finalize -> 定稿
 """
 
-from typing import Annotated, List, TypedDict
+from typing import Annotated, List, Optional, TypedDict
 
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage
@@ -39,12 +39,23 @@ STAGE_LABELS: dict[str, str] = {
 class WriterState(TypedDict, total=False):
     """Agent 在节点间传递的状态。
 
+    结构对齐 LangGraph-Chatchat 的 State 语义：
+    1. `messages` 为核心消息队列（add_messages 自动合并），所有图共用;
+    2. `history` 供 history_len 裁剪后喂给 LLM 的历史上下文;
+    3. 其余字段为区间式创作流水线（workflow）与 agent 路由使用的业务字段。
+
     区间执行时, 若从中间阶段开始, 调用方必须在初始 state 中提供该阶段
     所需的输入字段（例如从 review 开始需要提供 draft）。
     """
 
     # 消息队列（LangGraph add_messages 自动合并）
-    messages: Annotated[List[BaseMessage], add_messages]
+    # ---- chatchat 语义 ----
+    messages: Annotated[List[BaseMessage], add_messages]  # 核心消息队列
+    history: Optional[List[BaseMessage]]                 # 裁剪后的历史上下文
+
+    # ---- agent 路由 ----
+    agent: str            # 当前使用的 agent 图名（novelist / content_reviser / …）
+    project_dir: str      # 小说项目目录（供 file 工具使用）
 
     # ---- 任务描述 ----
     task: str                       # 用户下达的任务描述
@@ -68,6 +79,11 @@ class WriterState(TypedDict, total=False):
     # ---- 迭代控制 ----
     iteration: int                  # 当前迭代次数
     max_iterations: int             # 最大迭代次数
+
+    # ---- 确定性校验（code 节点，不经 LLM） ----
+    cjk_count: int                  # 草稿中文字符数 (字数校验节点计算)
+    blacklist_hits: List[str]       # 命中的禁用词列表 (禁用词扫描节点计算)
+    check_error: str                # 最近一次校验失败原因（用于回跳 draft 时的改写提示）
 
 
 def normalize_stage(stage: str) -> str:

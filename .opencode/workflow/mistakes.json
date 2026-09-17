@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "project": "",
+  "rules": [],
+  "_schema": {
+    "id": "M+序号",
+    "category": "ai_pattern | structure | character | logic | pacing",
+    "rule": "具体禁止/注意事项",
+    "times_seen": "累计发现次数",
+    "last_seen_chapter": "最近一次出现的章节",
+    "last_seen_at": "ISO时间戳"
+  }
+}

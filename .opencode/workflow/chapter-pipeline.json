@@ -1,0 +1,170 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "name": "chapter-pipeline",
+  "description": "章节创作全流程：调研→大纲→写稿→校验→审稿→修改→定稿",
+  "version": "2.0.0",
+  "input": {
+    "task": { "type": "string", "required": true, "description": "用户任务描述" },
+    "project_dir": { "type": "string", "required": false, "description": "小说项目目录（不填则输出到 .opencode/workflow/output/）" },
+    "chapter_num": { "type": "string", "required": false, "description": "章节编号，如 031" },
+    "chapter_title": { "type": "string", "required": false, "description": "章节标题" },
+    "volume": { "type": "string", "required": false, "default": "第一部", "description": "所属卷" },
+    "start_stage": { "type": "string", "required": false, "default": "research", "description": "起始阶段（可区间执行）" },
+    "end_stage": { "type": "string", "required": false, "default": "finalize", "description": "结束阶段（可区间执行）" },
+    "target_word_count": { "type": "number", "required": false, "default": 3500, "description": "目标字数" },
+    "review_dimensions": { "type": "array", "required": false, "description": "审稿维度列表" },
+    "blacklist_words": { "type": "array", "required": false, "default": ["微微", "轻轻", "缓缓", "某种", "仿佛", "似乎", "像是"], "description": "禁用词列表" }
+  },
+  "nodes": {
+    "research": {
+      "type": "agent",
+      "name": "调研",
+      "agent": "novelist",
+      "depends_on": [],
+      "inputs": {
+        "task": { "type": "string", "required": true },
+        "project_dir": { "type": "string", "required": false }
+      },
+      "outputs": {
+        "research_notes": { "type": "string", "description": "调研纪要正文" }
+      },
+      "output_file": null
+    },
+    "outline": {
+      "type": "agent",
+      "name": "大纲",
+      "agent": "novelist",
+      "depends_on": ["research"],
+      "inputs": {
+        "task": { "type": "string", "required": true },
+        "research_notes": { "type": "string", "required": true },
+        "project_dir": { "type": "string", "required": false }
+      },
+      "outputs": {
+        "outline": { "type": "string", "description": "章节大纲正文" }
+      },
+      "output_file": {
+        "file": "章节大纲/逐章卡片.md",
+        "output_keys": ["outline"],
+        "append": true
+      }
+    },
+    "draft": {
+      "type": "agent",
+      "name": "写稿",
+      "agent": "novelist",
+      "depends_on": ["outline"],
+      "inputs": {
+        "task": { "type": "string", "required": true },
+        "outline": { "type": "string", "required": true },
+        "target_word_count": { "type": "number", "required": false, "default": 3500 },
+        "project_dir": { "type": "string", "required": false }
+      },
+      "outputs": {
+        "draft_content": { "type": "string", "description": "章节正文草稿" }
+      },
+      "output_file": {
+        "file": "正文/{volume}/草稿.md",
+        "output_keys": ["draft_content"]
+      }
+    },
+    "check_word_count": {
+      "type": "code",
+      "name": "字数校验",
+      "handler": "count_cjk",
+      "depends_on": ["draft"],
+      "params": { "text": "@draft_content" },
+      "outputs": {
+        "cjk_count": { "type": "number", "description": "中文字符数" }
+      },
+      "checks": [
+        { "field": "cjk_count", "min": 3200, "max": 4100, "description": "目标3500±300" }
+      ],
+      "on_fail": { "loop_back_to": "draft", "max_retries": 2 }
+    },
+    "check_blacklist": {
+      "type": "code",
+      "name": "禁用词扫描",
+      "handler": "check_blacklist",
+      "depends_on": ["check_word_count"],
+      "params": {
+        "text": "@draft_content",
+        "words": "@blacklist_words"
+      },
+      "outputs": {
+        "hits": { "type": "array", "description": "命中的禁用词列表" }
+      },
+      "checks": [
+        { "field": "hits", "empty": true, "description": "不得命中任何禁用词" }
+      ],
+      "on_fail": { "loop_back_to": "draft", "max_retries": 2 }
+    },
+    "review": {
+      "type": "agent",
+      "name": "审稿",
+      "agent": "chapter-finalizer",
+      "depends_on": ["check_blacklist"],
+      "inputs": {
+        "draft_content": { "type": "string", "required": true },
+        "task": { "type": "string", "required": true },
+        "target_word_count": { "type": "number", "required": false, "default": 3500 },
+        "cjk_count": { "type": "number", "required": false }
+      },
+      "outputs": {
+        "review_notes": { "type": "array", "description": "审稿意见 JSON 数组" }
+      },
+      "output_file": {
+        "file": "审稿记录/{chapter_num}-{chapter_title}-审稿.md",
+        "output_keys": ["review_notes"],
+        "format": "markdown_table"
+      }
+    },
+    "revise": {
+      "type": "agent",
+      "name": "修改",
+      "agent": "novelist",
+      "depends_on": ["review"],
+      "inputs": {
+        "draft_content": { "type": "string", "required": true },
+        "review_notes": { "type": "array", "required": true },
+        "target_word_count": { "type": "number", "required": false, "default": 3500 }
+      },
+      "outputs": {
+        "draft_content": { "type": "string", "description": "修改后的章节正文" }
+      },
+      "output_file": {
+        "file": "正文/{volume}/草稿.md",
+        "output_keys": ["draft_content"],
+        "overwrite": true
+      }
+    },
+    "finalize": {
+      "type": "agent",
+      "name": "定稿",
+      "agent": "novelist",
+      "depends_on": ["revise"],
+      "inputs": {
+        "draft_content": { "type": "string", "required": true },
+        "review_notes": { "type": "array", "required": false }
+      },
+      "outputs": {
+        "final_content": { "type": "string", "description": "最终定稿正文" }
+      },
+      "output_file": {
+        "file": "正文/{volume}/第{chapter_num}章-{chapter_title}.md",
+        "output_keys": ["final_content"]
+      }
+    }
+  },
+  "schedule": {
+    "mode": "linear",
+    "max_iterations": 6,
+    "revise_loop": {
+      "enabled": true,
+      "trigger_node": "review",
+      "loop_back_to": "revise",
+      "max_loops": 2,
+      "exit_condition": "review_notes is empty"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "revise",
+  "name": "修改",
+  "agent": "novelist",
+  "inputs": {
+    "draft_content": { "type": "string", "required": true },
+    "review_notes": { "type": "array", "required": true },
+    "target_word_count": { "type": "number", "required": false, "default": 3500 }
+  },
+  "outputs": {
+    "draft_content": { "type": "string", "description": "修改后的章节正文" }
+  },
+  "output_file": {
+    "file": "正文/{volume}/草稿.md",
+    "output_keys": ["draft_content"],
+    "overwrite": true
+  }
+}

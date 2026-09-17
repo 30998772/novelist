@@ -1,0 +1,18 @@
+{
+  "id": "review",
+  "name": "审稿",
+  "agent": "chapter-finalizer",
+  "inputs": {
+    "draft_content": { "type": "string", "required": true },
+    "task": { "type": "string", "required": true },
+    "target_word_count": { "type": "number", "required": false, "default": 3500 }
+  },
+  "outputs": {
+    "review_notes": { "type": "array", "description": "审稿意见 JSON 数组" }
+  },
+  "output_file": {
+    "file": "审稿记录/{chapter_num}-{chapter_title}-审稿.md",
+    "output_keys": ["review_notes"],
+    "format": "markdown_table"
+  }
+}

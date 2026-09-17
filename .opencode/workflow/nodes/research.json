@@ -1,0 +1,13 @@
+{
+  "id": "research",
+  "name": "调研",
+  "agent": "novelist",
+  "inputs": {
+    "task": { "type": "string", "required": true, "description": "用户任务描述" },
+    "project_dir": { "type": "string", "required": false, "description": "小说项目目录" }
+  },
+  "outputs": {
+    "research_notes": { "type": "string", "description": "调研纪要正文" }
+  },
+  "output_file": null
+}

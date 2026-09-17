@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opencode-node-v1",
+  "title": "Workflow Node Definition",
+  "description": "opencode 工作流节点定义文件的 schema。每个节点定义一个 agent 任务：输入来源、输出目标、提示词模板和输出文件路径。",
+  "type": "object",
+  "required": ["id", "name", "agent"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z_][a-z0-9_]*$",
+      "description": "节点 ID，须与 workflow 中的节点 id 一致"
+    },
+    "name": {
+      "type": "string",
+      "description": "节点中文名称（展示用）"
+    },
+    "description": {
+      "type": "string",
+      "description": "节点功能描述"
+    },
+    "agent": {
+      "type": "string",
+      "description": "执行该节点的 agent 名称（novelist / chapter-finalizer / content-reviser / ...）"
+    },
+    "inputs": {
+      "type": "object",
+      "description": "节点从 state 读取的输入字段定义",
+      "additionalProperties": {
+        "$ref": "#/$defs/input_spec"
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "description": "节点写入 state 的输出字段定义",
+      "additionalProperties": {
+        "$ref": "#/$defs/output_spec"
+      }
+    },
+    "output_file": {
+      "$ref": "#/$defs/node_output_file"
+    },
+    "default_dimensions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "审稿维度等默认参数（仅 review 等节点使用）"
+    },
+    "prompt_template": {
+      "type": "string",
+      "description": "发给 agent 的提示词模板，{var} 会被替换为 state 中的值"
+    }
+  },
+  "$defs": {
+    "input_spec": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["string", "number", "boolean", "array", "object"] },
+        "required": { "type": "boolean", "default": true },
+        "default": {},
+        "description": { "type": "string" }
+      },
+      "required": ["type"]
+    },
+    "output_spec": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["string", "number", "boolean", "array", "object"] },
+        "description": { "type": "string" }
+      },
+      "required": ["type"]
+    },
+    "node_output_file": {
+      "type": "object",
+      "description": "该节点的文件输出配置",
+      "properties": {
+        "file": {
+          "type": ["string", "null"],
+          "description": "输出文件路径（相对于 output_config.base_dir），支持 {var}；null 表示不落盘"
+        },
+        "output_keys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "要写入文件的 state 字段名列表"
+        },
+        "append": {
+          "type": "boolean",
+          "default": false,
+          "description": "追加模式"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": false,
+          "description": "覆盖模式（追加和覆盖互斥，同时设则以 overwrite 为准）"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["plain", "markdown", "markdown_table", "json"],
+          "default": "plain"
+        },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}
