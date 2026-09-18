@@ -83,6 +83,7 @@ class WriterState(TypedDict, total=False):
     # ---- 意图识别 ----
     intent_list: List[str]          # LLM识别出的意图列表
     current_intent: str             # 当前正在执行的意图
+    intent_index: int               # 当前执行到 intent_list 的第几个意图
     intent_results: dict            # 各意图执行结果 {意图: 结果}
     clarification_attempts: int     # 意图识别尝试次数
     user_continues: bool            # 用户是否继续对话
