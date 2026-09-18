@@ -2,7 +2,7 @@
 
 - build_tools(name): 按图的 tool_names 过滤工具清单（"*" = 全部）。
 - create_graph(name, ...): 实例化图类（LLM 默认走 get_llm()）。
-- run_agent(name, message, ...): 一次性执行, 返回最终 AI 回复。
+- run_agent(name, message, ...): 单轮执行, 返回最终 AI 回复。
 """
 
 import os
@@ -47,31 +47,7 @@ def create_graph(name, llm=None, history_len: int = DEFAULT_HISTORY_LEN,
 
 def run_agent(name: str, message: str, project_dir: Optional[str] = None,
               llm=None, history_len: int = DEFAULT_HISTORY_LEN, **kwargs) -> str:
-    """对指定 agent 图执行一次对话, 返回最终 AI 文本回复。
-
-    writer_workflow 图则把 message 当作创作任务, 从 start 到 end 跑流水线。
-    """
-    cls = get_graph_class(name)
-    # start/end 只对区间流水线有意义: 其余图不接收这两个参数, 统一在此剥离,
-    # 否则 cli / mcp 传入的 start/end 会落到图构造函数上而报 TypeError。
-    start = kwargs.pop("start", "research")
-    end = kwargs.pop("end", "finalize")
-
-    if cls.name == "writer_workflow":
-        from .graph_builder import run_interval
-
-        result = run_interval(
-            {"task": message, "input_data": kwargs.pop("input_data", {}),
-             "iteration": 0, "max_iterations": 3, "messages": [],
-             "project_dir": project_dir},
-            start=start,
-            end=end,
-        )
-        for key in ("final_content", "draft", "outline", "research_notes"):
-            if result.get(key):
-                return result[key]
-        return "（流水线无输出）"
-
+    """对指定 agent 图执行一次对话, 返回最终 AI 文本回复。"""
     graph_obj = create_graph(name, llm=llm, history_len=history_len, **kwargs)
     compiled = graph_obj.get_graph()
     initial = {
@@ -79,6 +55,11 @@ def run_agent(name: str, message: str, project_dir: Optional[str] = None,
         "history": [],
         "agent": name,
         "project_dir": project_dir,
+        "intent_list": [],
+        "current_intent": "",
+        "intent_results": {},
+        "clarification_attempts": 0,
+        "user_continues": True,
     }
     config = {"configurable": {"thread_id": f"{name}-{os.getpid()}-run"}}
     result = compiled.invoke(initial, config)

@@ -1,35 +1,26 @@
 """writer_agent: 小说创作 LangGraph Agent 包。
 
 架构对齐 LangGraph-Chatchat:
-- `graphs_factory/`: 6 个 opencode agent 转换来的图和注册中心, 外加区间式创作流水线;
+- `graphs_factory/`: 6 个 opencode agent 转换来的图和注册中心;
 - `tools_factory/`: 27 个 skill 转换来的工具和注册中心, 外加文件工具;
 - `app.py`: 装配入口 (build_tools / create_graph / run_agent);
-- 保留 state / registry / nodes / graph_builder 以兼容区间式工作流与旧 CLI。
+- `service/`: session 管理;
+- `state.py`: 状态定义与意图识别字段。
 """
 
-from .state import (
-    STAGE_LABELS,
-    STAGE_ORDER,
-    WriterState,
-    interval_stages,
-    normalize_stage,
-    validate_interval,
-)
-from .registry import all_stages, get_stage, register_stage, registered_names
-from .graph_builder import WriterGraph, build_agent, run_interval
+from .state import WriterState
 from .llm import get_llm
-from . import nodes  # noqa: F401  注册全部阶段节点
 from . import tools_factory  # noqa: F401  注册全部 skill 工具
 from . import graphs_factory  # noqa: F401  注册全部 agent 图
 from . import app  # noqa: F401
+from .service import Session, SessionManager, get_session_manager
 
 # 便捷导出
 from .graphs_factory import (
     BaseAgentGraph,
     BaseRagGraph,
     Graph,
-    PlanExecuteGraph,
-    ReflexionGraph,
+    NovelistGraph,
     State,
     all_graph_names,
     get_graph_class,
@@ -47,23 +38,8 @@ from .tools_factory import (
 from .app import build_tools, create_graph, run_agent
 
 __all__ = [
-    # 状态/阶段
-    "STAGE_LABELS",
-    "STAGE_ORDER",
+    # 状态
     "WriterState",
-    "interval_stages",
-    "normalize_stage",
-    "validate_interval",
-    # 阶段节点注册
-    "all_stages",
-    "get_stage",
-    "register_stage",
-    "registered_names",
-    # 区间工作流
-    "WriterGraph",
-    "build_agent",
-    "run_interval",
-    "nodes",
     # LLM
     "get_llm",
     # 图注册与选择
@@ -76,8 +52,7 @@ __all__ = [
     "list_graph_titles_by_label",
     "BaseAgentGraph",
     "BaseRagGraph",
-    "PlanExecuteGraph",
-    "ReflexionGraph",
+    "NovelistGraph",
     # 工具注册
     "regist_tool",
     "BaseToolOutput",
@@ -91,6 +66,10 @@ __all__ = [
     "app",
     "tools_factory",
     "graphs_factory",
+    # Session 管理
+    "Session",
+    "SessionManager",
+    "get_session_manager",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

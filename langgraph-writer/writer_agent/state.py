@@ -64,6 +64,10 @@ class WriterState(TypedDict, total=False):
     # ---- 调研阶段产物 ----
     research_notes: str             # 调研纪要
 
+    # ---- 构思子图产物 ----
+    brainstorm_draft: str           # story_brainstorm 工具产出的头脑风暴草案
+    core_concept: str               # 收敛后的一句话高概念/推荐方案
+
     # ---- 大纲阶段产物 ----
     outline: str                    # 章节/篇章大纲
 
@@ -76,9 +80,12 @@ class WriterState(TypedDict, total=False):
     # ---- 定稿阶段产物 ----
     final_content: str              # 最终输出
 
-    # ---- 迭代控制 ----
-    iteration: int                  # 当前迭代次数
-    max_iterations: int             # 最大迭代次数
+    # ---- 意图识别 ----
+    intent_list: List[str]          # LLM识别出的意图列表
+    current_intent: str             # 当前正在执行的意图
+    intent_results: dict            # 各意图执行结果 {意图: 结果}
+    clarification_attempts: int     # 意图识别尝试次数
+    user_continues: bool            # 用户是否继续对话
 
     # ---- 确定性校验（code 节点，不经 LLM） ----
     cjk_count: int                  # 草稿中文字符数 (字数校验节点计算)

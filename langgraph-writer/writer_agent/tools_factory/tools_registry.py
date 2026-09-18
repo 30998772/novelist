@@ -10,8 +10,7 @@ import json
 import re
 from typing import Any, Callable, Optional, Type, Union
 
-from langchain.agents import tool
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, tool
 from pydantic import BaseModel
 
 __all__ = ["regist_tool", "BaseToolOutput", "get_tool", "list_tools", "all_tool_names"]

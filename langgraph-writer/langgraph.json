@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "novelist": "writer_agent.studio:novelist_graph"
+  },
+  "env": ".env"
+}

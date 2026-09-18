@@ -1,0 +1,16 @@
+graph TB
+    START((开始)) --> HISTORY["history_manager<br/>裁剪历史"]
+    HISTORY --> CHATBOT["chatbot<br/>决定是否检索"]
+    CHATBOT --> TC{"tools_condition<br/>有tool_calls?"}
+    
+    TC -- "有" --> RETRIEVE["retrieve<br/>ToolNode检索"]
+    TC -- "无" --> END((结束))
+    
+    RETRIEVE --> INIT["init_docs<br/>提取检索结果"]
+    INIT --> GRADE{"grade_documents<br/>判断相关性"}
+    
+    GRADE -- "yes相关" --> GENERATE["generate<br/>生成答案"]
+    GRADE -- "no不相关" --> REWRITE["rewrite<br/>改写问题"]
+    
+    REWRITE --> CHATBOT
+    GENERATE --> END

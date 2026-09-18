@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "writer-agent"
+version = "0.3.0"
+description = "小说创作 LangGraph Agent（novelist 主图 + 写作工具集）"
+requires-python = ">=3.10"
+dependencies = [
+    # langgraph dev (langgraph-cli[inmem]) 需要较新的 langgraph, 故不设上限
+    "langgraph>=0.2.10",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "mcp>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "langgraph-cli[inmem]>=0.1.71",
+]
+
+[tool.setuptools]
+packages = [
+    "writer_agent",
+    "writer_agent.graphs_factory",
+    "writer_agent.tools_factory",
+    "writer_agent.rag",
+    "writer_agent.service",
+]

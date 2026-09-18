@@ -1,31 +1,20 @@
-"""graphs_factory：由 `.opencode/agent/*.md` 转换来的 LangGraph 图集合。
+"""graphs_factory：LangGraph 图集合与注册中心。
 
 框架层（对齐 LangGraph-Chatchat graphs_factory）：
-- graphs_registry（rag_registry / agent_registry / graph_registry）
-- base_agent（BaseAgentGraph：history_manager → chatbot → tools）
+- graphs_registry（rag_registry / agent_registry / graph_registry / all_graph_names）
+- novelist（BaseAgentGraph 基类 + NovelistGraph 主图：意图识别 → 子图分派 → chatbot ⇄ tools）
 - base_rag（BaseRagGraph：Agentic RAG，label="rag"）
-- plan_and_execute / reflexion（多步 agent 范式）
 
-业务图（label="agent"）：
-- novelist（主 agent, 全能调度）
-- content_reviser / ai_trace_checker / craft_reviewer / style_curator / chapter_finalizer
-- writer_workflow（保留的区间式创作流水线）
+当前仅保留以上图；content_reviser / plan_and_execute / reflexion 等已移除，
+后续按需在 novelist.py 中以 BaseAgentGraph 子类的形式补回。
 
 导入本模块即注册全部图到 graphs_registry。
 """
 
 from . import graphs_registry  # noqa: F401
-from . import base_agent  # noqa: F401
-from . import base_rag  # noqa: F401
-from . import plan_and_execute  # noqa: F401
-from . import reflexion  # noqa: F401
 from . import novelist  # noqa: F401
-from . import content_reviser  # noqa: F401
-from . import ai_trace_checker  # noqa: F401
-from . import craft_reviewer  # noqa: F401
-from . import style_curator  # noqa: F401
-from . import chapter_finalizer  # noqa: F401
-from . import writer_workflow  # noqa: F401
+from . import base_rag  # noqa: F401
+
 
 from .graphs_registry import (  # noqa: E402
     Graph,
@@ -38,10 +27,8 @@ from .graphs_registry import (  # noqa: E402
     rag_registry,
     register_graph,
 )
-from .base_agent import BaseAgentGraph, ToolCallingAgentGraph  # noqa: E402
+from .novelist import BaseAgentGraph, NovelistGraph, ToolCallingAgentGraph  # noqa: E402
 from .base_rag import BaseRagGraph, RagState  # noqa: E402
-from .plan_and_execute import PlanExecuteGraph  # noqa: E402
-from .reflexion import ReflexionGraph  # noqa: E402
 
 __all__ = [
     "Graph",
@@ -54,9 +41,8 @@ __all__ = [
     "rag_registry",
     "agent_registry",
     "BaseAgentGraph",
+    "NovelistGraph",
     "ToolCallingAgentGraph",
     "BaseRagGraph",
     "RagState",
-    "PlanExecuteGraph",
-    "ReflexionGraph",
 ]

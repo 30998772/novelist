@@ -1,0 +1,7 @@
+graph TB
+    START((开始)) --> CHATBOT["chatbot<br/>LLM+bind_tools"]
+    CHATBOT --> TC{"tools_condition"}
+    TC -- "有" --> TOOLS["ToolNode<br/>continuity_check<br/>ai_trace_check<br/>pacing_control<br/>hook_opening<br/>dialogue_craft<br/>scene_description<br/>emotion_scene<br/>action_scene<br/>suspense_twist<br/>narrative_viewpoint"]
+    TC -- "无" --> END((结束))
+    TOOLS --> INTERRUPT["interrupt<br/>等待用户输入"]
+    INTERRUPT --> CHATBOT
