@@ -26,6 +26,5 @@ def build_subgraph_review(
         llm=llm,
         tools=tools,
         state_cls=ReviewState,
-        after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )

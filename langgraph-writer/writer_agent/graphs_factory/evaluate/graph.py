@@ -26,6 +26,5 @@ def build_subgraph_evaluate(
         llm=llm,
         tools=tools,
         state_cls=EvaluateState,
-        after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )

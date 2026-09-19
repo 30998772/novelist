@@ -26,6 +26,5 @@ def build_subgraph_design(
         llm=llm,
         tools=tools,
         state_cls=DesignState,
-        after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )

@@ -1,8 +1,20 @@
-graph TB
-    START((开始)) --> CHATBOT["brainstorm_chatbot<br/>LLM+bind_tools"]
-    CHATBOT --> TC{"tools_condition"}
-    TC -- "有" --> TOOLS["ToolNode<br/>story_brainstorm"]
-    TC -- "无" --> FINISH["brainstorm_finish<br/>interrupt 等待用户确认"]
-    TOOLS --> CHATBOT
-    FINISH -- "用户确认通过" --> END((结束))
-    FINISH -- "用户不满意" --> CHATBOT
+graph TD
+    A["输入构思目标"] --> K{"调用次数超限？"}
+    K -->|是| L["强制总结现有发现"]
+    K -->|否| B["LLM思考<br/>输出动作集合"]
+    L --> J["输出构思结果结束"]
+
+    B --> C1["顺序执行"]
+
+    C1 -->|无依赖查询动作| D["并行执行查询"]
+    C1 -->|用户提问动作| G["向用户提问"]
+
+    D --> E["收集查询观测"]
+    G --> H["获取用户回答"]
+
+    E & H --> F["汇总本轮观测"]
+    F --> F1["LLM分析观测<br/>更新分层全局发现"]
+    F1 --> M{"任务完成？"}
+    M -->|是| N["生成构思结论"]
+    M -->|否| K
+    N --> J

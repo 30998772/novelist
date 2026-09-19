@@ -26,6 +26,5 @@ def build_subgraph_package(
         llm=llm,
         tools=tools,
         state_cls=PackageState,
-        after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )

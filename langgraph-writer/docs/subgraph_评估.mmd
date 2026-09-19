@@ -1,8 +1,6 @@
 graph TB
-    START((开始)) --> CHATBOT["evaluate_chatbot<br/>LLM+bind_tools"]
-    CHATBOT --> TC{"tools_condition"}
-    TC -- "有" --> TOOLS["ToolNode<br/>story_core_master<br/>dragon_ride_007<br/>urobuchi_gen<br/>anime_lightnovel_styles"]
-    TC -- "无" --> FINISH["evaluate_finish<br/>interrupt 等待用户确认"]
-    TOOLS --> CHATBOT
-    FINISH -- "用户确认通过" --> END((结束))
-    FINISH -- "用户不满意" --> CHATBOT
+    开始((开始)) --> 对话["对话<br/>LLM+绑定工具"]
+    对话 --> 工具判断{"工具判断"}
+    工具判断 -- "有" --> 工具["工具执行<br/>story_core_master<br/>dragon_ride_007<br/>urobuchi_gen<br/>anime_lightnovel_styles"]
+    工具判断 -- "无" --> 结束((结束))
+    工具 --> 对话

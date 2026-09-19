@@ -1,8 +1,6 @@
 graph TB
-    START((开始)) --> CHATBOT["review_chatbot<br/>LLM+bind_tools"]
-    CHATBOT --> TC{"tools_condition"}
-    TC -- "有" --> TOOLS["ToolNode<br/>continuity_check<br/>ai_trace_check<br/>pacing_control<br/>hook_opening<br/>dialogue_craft<br/>scene_description<br/>emotion_scene<br/>action_scene<br/>suspense_twist<br/>narrative_viewpoint"]
-    TC -- "无" --> FINISH["review_finish<br/>interrupt 等待用户确认"]
-    TOOLS --> CHATBOT
-    FINISH -- "用户确认通过" --> END((结束))
-    FINISH -- "用户不满意" --> CHATBOT
+    开始((开始)) --> 对话["对话<br/>LLM+绑定工具"]
+    对话 --> 工具判断{"工具判断"}
+    工具判断 -- "有" --> 工具["工具执行<br/>continuity_check<br/>ai_trace_check<br/>pacing_control<br/>hook_opening<br/>dialogue_craft<br/>scene_description<br/>emotion_scene<br/>action_scene<br/>suspense_twist<br/>narrative_viewpoint"]
+    工具判断 -- "无" --> 结束((结束))
+    工具 --> 对话

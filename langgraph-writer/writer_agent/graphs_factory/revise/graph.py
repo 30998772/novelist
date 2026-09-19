@@ -26,6 +26,5 @@ def build_subgraph_revise(
         llm=llm,
         tools=tools,
         state_cls=ReviseState,
-        after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )

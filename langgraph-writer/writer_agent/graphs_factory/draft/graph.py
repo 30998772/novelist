@@ -26,6 +26,5 @@ def build_subgraph_draft(
         llm=llm,
         tools=tools,
         state_cls=DraftState,
-        after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )
