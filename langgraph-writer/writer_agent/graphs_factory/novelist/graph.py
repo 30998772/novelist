@@ -15,94 +15,37 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from ..state import WriterState
-from .chat_node import build_tool_loop, make_chat_node
-from .graphs_registry import Graph, register_graph
-from .subgraph_brainstorm import build_subgraph_brainstorm
-from .subgraph_draft import build_subgraph_draft
-from .subgraph_design import build_subgraph_design
-from .subgraph_review import build_subgraph_review
-from .subgraph_revise import build_subgraph_revise
-from .subgraph_evaluate import build_subgraph_evaluate
-from .subgraph_package import build_subgraph_package
-
-MAX_CLARIFICATION_ATTEMPTS = 3
-FALLBACK_INTENTS: set[str] = set()
+from ...state import WriterState
+from .._shared.chat_node import build_tool_loop, make_chat_node
+from .._shared.registry import Graph, register_graph
+from .configs import (
+    NODES as CFG_NODES,
+    ENTRY as CFG_ENTRY,
+    EDGES as CFG_EDGES,
+    ROUTES as CFG_ROUTES,
+    CONDITIONAL_EDGES as CFG_CONDITIONAL_EDGES,
+    STATE as CFG_STATE,
+    SUBGRAPHS as CFG_SUBGRAPHS,
+    MAX_CLARIFICATION_ATTEMPTS,
+    FALLBACK_INTENTS,
+)
+from .prompts import (
+    INTENT_PROMPT_TEMPLATE,
+    INTENT_PROMPT_EXAMPLES,
+    NOVELIST_SYSTEM_PROMPT,
+)
 
 
 class BaseAgentGraph(Graph):
     # ════════════════════════════════════════════════════════════════
-    # 图配置（改这里即可增删节点/边/子图）
+    # 图配置（从 configs.py 导入）
     # ════════════════════════════════════════════════════════════════
-
-    # 节点：逻辑名 -> 实际节点名
-    NODES = {
-        "history": "history_manager",
-        "intent": "intent_recognition",
-        "clarify": "ask_clarification",
-        "dispatch": "dispatch_next",
-        "generic": "subgraph_generic",
-        "collect": "collect_results",
-        "chatbot": "chatbot",
-        "tools": "tools",
-    }
-    ENTRY = "history"
-
-    # 普通边：[起点逻辑名, 终点逻辑名]；终点可为 END
-    EDGES = [
-        ["history", "intent"],
-        ["clarify", END],
-        ["generic", "dispatch"],
-        ["collect", "chatbot"],
-        ["tools", "chatbot"],
-    ]
-
-    # 路由返回值（要和 CONDITIONAL_EDGES 的 map key、route_* 的返回一致）
-    ROUTES = {
-        "clarify": "ask_clarification",
-        "dispatch": "dispatch_next",
-        "collect": "collect_results",
-        "generic": "subgraph_generic",
-    }
-
-    # 条件边：起点逻辑名 -> {"router": 方法名或 None, "map": {路由值: 终点逻辑名} 或 None}
-    CONDITIONAL_EDGES = {
-        "intent": {
-            "router": "route_after_intent",
-            "map": {ROUTES["clarify"]: "clarify", ROUTES["dispatch"]: "dispatch"},
-        },
-        "chatbot": {"router": None, "map": None},  # None 走 tools_condition
-    }
-
-    # State 字段键
-    STATE = {
-        "messages": "messages",
-        "history": "history",
-        "intents": "intent_list",
-        "current": "current_intent",
-        "index": "intent_index",
-        "results": "intent_results",
-        "clarify_count": "clarification_attempts",
-        "task": "task",
-    }
-
-    # 意图识别 prompt
-    INTENT_PROMPT_TEMPLATE = (
-        "你是一个意图识别助手。根据用户输入，识别用户的意图并输出意图列表。\n"
-        "\n"
-        "可选意图：\n"
-        "{intent_options}\n"
-        "\n"
-        "输出要求：只输出一个JSON数组，不要输出任何其他文字、解释或Markdown代码块。\n"
-        "示例：\n"
-        "{intent_examples}\n"
-        "如果用户输入不明确（如闲聊、问候），输出 []"
-    )
-    INTENT_PROMPT_EXAMPLES = (
-        '用户：我想开新书，帮我找点灵感 -> ["构思"]\n'
-        '用户：先写大纲再写第一章 -> ["设计", "创作"]\n'
-        '用户：检查一下有没有AI痕迹 -> ["审稿"]'
-    )
+    NODES = CFG_NODES
+    ENTRY = CFG_ENTRY
+    EDGES = CFG_EDGES
+    ROUTES = CFG_ROUTES
+    CONDITIONAL_EDGES = CFG_CONDITIONAL_EDGES
+    STATE = CFG_STATE
 
     # ════════════════════════════════════════════════════════════════
     # 子类覆写
@@ -132,9 +75,9 @@ class BaseAgentGraph(Graph):
         options = [f"- {k}：{v.get('description', '')}" for k, v in cfg.items()]
         options += [f"- {i}：待补充描述" for i in sorted(FALLBACK_INTENTS) if i not in cfg]
 
-        intent_prompt_text = self.INTENT_PROMPT_TEMPLATE.format(
+        intent_prompt_text = INTENT_PROMPT_TEMPLATE.format(
             intent_options="\n".join(options),
-            intent_examples=self.INTENT_PROMPT_EXAMPLES,
+            intent_examples=INTENT_PROMPT_EXAMPLES,
         )
         self.intent_prompt = ChatPromptTemplate.from_messages([
             ("system", intent_prompt_text),
@@ -306,7 +249,7 @@ class BaseAgentGraph(Graph):
         for t in self.tools:
             if t.name == name:
                 return t
-        from ..tools_factory import get_tool
+        from ...tools_factory import get_tool
         return get_tool(name)
 
     # ------------------------------------------------------------------
@@ -365,61 +308,10 @@ ToolCallingAgentGraph = BaseAgentGraph
 
 @register_graph
 class NovelistGraph(BaseAgentGraph):
-    SUBGRAPHS = {
-        "构思": {
-            "node_name": "subgraph_brainstorm",
-            "tools": ["story_brainstorm"],
-            "description": "找灵感、定题材、开新书、讨论核心冲突",
-            "build_func": build_subgraph_brainstorm,
-        },
-        "设计": {
-            "node_name": "subgraph_design",
-            "tools": ["story_outline", "character_design", "worldbuilding"],
-            "description": "大纲设计、角色创建、世界观搭建",
-            "build_func": build_subgraph_design,
-        },
-        "创作": {
-            "node_name": "subgraph_draft",
-            "tools": ["chapter_drafting", "add_setting"],
-            "description": "写新章、续写正文、补充素材",
-            "build_func": build_subgraph_draft,
-        },
-        "审稿": {
-            "node_name": "subgraph_review",
-            "tools": [
-                "continuity_check", "ai_trace_check", "pacing_control",
-                "hook_opening", "dialogue_craft", "scene_description",
-                "emotion_scene", "action_scene", "suspense_twist", "narrative_viewpoint"
-            ],
-            "description": "排查矛盾、AI痕迹、节奏、对话、场景、叙事等全方位检查",
-            "build_func": build_subgraph_review,
-        },
-        "修改": {
-            "node_name": "subgraph_revise",
-            "tools": ["revision", "writing_style", "story_core_master"],
-            "description": "修改润色、文风定制、丰满度补强",
-            "build_func": build_subgraph_revise,
-        },
-        "评估": {
-            "node_name": "subgraph_evaluate",
-            "tools": ["story_core_master", "dragon_ride_007", "urobuchi_gen", "anime_lightnovel_styles"],
-            "description": "六维评分、故事核心诊断、ACGN风格参考",
-            "build_func": build_subgraph_evaluate,
-        },
-        "包装": {
-            "node_name": "subgraph_package",
-            "tools": ["title_blurb", "recommend_platform", "revision_log"],
-            "description": "起书名、写简介、推荐投稿平台",
-            "build_func": build_subgraph_package,
-        },
-    }
+    SUBGRAPHS = CFG_SUBGRAPHS
 
     name = "novelist"
     label = "agent"
     title = "小说家"
     tool_names = ["*"]
-    system_prompt = (
-        "你是「小说家」主 agent，负责统筹构思/设计/创作/审稿/修改/评估/包装等写作环节。"
-        "你可以直接调用写作工具产出正文、大纲、设定、检查等内容。"
-        "始终用中文回复，紧扣用户的写作需求，输出可直接使用的成品，不要空谈方法论。"
-    )
+    system_prompt = NOVELIST_SYSTEM_PROMPT

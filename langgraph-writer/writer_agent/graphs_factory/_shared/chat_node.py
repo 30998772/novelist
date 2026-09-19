@@ -12,7 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import interrupt
 
-from ..state import WriterState
+from ...state import WriterState
 
 
 def make_chat_node(llm_with_tools):

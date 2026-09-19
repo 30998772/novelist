@@ -11,6 +11,7 @@ from typing import Optional
 from langchain_core.messages import HumanMessage
 
 from ..llm import get_llm
+from ..prompts import SKILL_RUNNER_PREFIX, SKILL_RUNNER_SUFFIX, SKILL_RUNNER_OUTPUT_INSTRUCTION
 from ._files import load_skill, load_skill_retrieved, load_skill_with_references
 
 
@@ -36,10 +37,9 @@ def run_skill(
         rules = load_skill(name)
 
     prompt_parts = [
-        "你是一位资深中文小说创作专家。以下是你必须严格遵循的「创作技能」规范：",
-        "========== 技能规范（务必逐条对照执行） ==========",
+        SKILL_RUNNER_PREFIX,
         rules,
-        "========== 结束 ==========",
+        SKILL_RUNNER_SUFFIX,
         "",
     ]
     if task:
@@ -48,7 +48,7 @@ def run_skill(
         prompt_parts.append(f"用户提供的素材/文本：\n{material}")
     if output_hint:
         prompt_parts.append(output_hint)
-    prompt_parts.append("请直接输出最终结果本身，不要输出任何过程说明或多余解释。")
+    prompt_parts.append(SKILL_RUNNER_OUTPUT_INSTRUCTION)
 
     resp = get_llm(temperature=temperature).invoke([HumanMessage(content="\n".join(prompt_parts))])
     return str(resp.content).strip() if resp.content is not None else ""

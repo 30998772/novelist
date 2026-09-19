@@ -27,9 +27,16 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from pydantic import BaseModel, Field
 
-from ..state import WriterState
-from ..tools_factory import get_tool
-from .graphs_registry import Graph, register_graph
+from ...state import WriterState
+from ...tools_factory import get_tool
+from .._shared.registry import Graph, register_graph
+from .configs import TOOL_NAMES as CFG_TOOL_NAMES
+from .prompts import (
+    RAG_CHATBOT_PROMPT,
+    RAG_GRADE_PROMPT,
+    RAG_GENERATE_PROMPT,
+    RAG_REWRITE_PROMPT,
+)
 
 
 class RagState(WriterState, total=False):
@@ -48,13 +55,7 @@ class BaseRagGraph(Graph):
     name = "base_rag"
     label = "rag"
     title = "基础RAG"
-    tool_names = [
-        "search_knowledge",
-        "search_manuscript",
-        "read_file",
-        "search_files",
-        "list_files",
-    ]
+    tool_names = CFG_TOOL_NAMES
 
     def __init__(self,
                  llm: ChatOpenAI,
@@ -110,17 +111,7 @@ class BaseRagGraph(Graph):
             state["history"].append(state["messages"][-1])
 
         prompt = PromptTemplate(
-            template="""
-            你是小说创作助手的检索决策器，判断是否需要调用本地知识库检索工具来回答问题。
-
-            检索工具参数如下：
-            knowledge_base：{knowledge_base}
-            top_k：{top_k}
-            score_threshold：{score_threshold}
-
-            对话历史与用户问题如下：
-            {history}
-            """,
+            template=RAG_CHATBOT_PROMPT,
             input_variables=["history", "knowledge_base", "top_k", "score_threshold"],
         )
 
@@ -138,17 +129,7 @@ class BaseRagGraph(Graph):
             binary_score: str = Field(description="Relevance score 'yes' or 'no'")
 
         prompt = PromptTemplate(
-            template="""
-            你是评估「召回文档」与「用户问题」相关性的评审员。
-            召回文档：
-            {docs}
-
-            历史与用户问题：
-            {history}
-
-            若文档包含与问题相关的关键词或语义，判为相关。输出 yes 或 no。
-            输出必须是含 binary_score 属性的对象，例如：{{"binary_score": "yes"}}。
-            """,
+            template=RAG_GRADE_PROMPT,
             input_variables=["docs", "history"],
         )
 
@@ -164,17 +145,7 @@ class BaseRagGraph(Graph):
     def generate(self, state: RagState) -> RagState:
         """基于召回文档生成答案。"""
         prompt = PromptTemplate(
-            template="""
-            【指令】
-            根据已知信息，简洁专业地回答问题。若无法从已知信息得到答案，请回答
-            “根据已知信息无法回答该问题”，不允许编造，答案使用中文。
-
-            【已知信息】
-            {docs}
-
-            【历史消息及用户问题】
-            {history}
-            """,
+            template=RAG_GENERATE_PROMPT,
             input_variables=["context", "question"],
         )
 
@@ -186,17 +157,7 @@ class BaseRagGraph(Graph):
     def rewrite(self, state: RagState) -> RagState:
         """改写问题以获得更好的检索结果。"""
         prompt = PromptTemplate(
-            template="""
-            结合以下对话历史，推断用户问题的语义意图，改写出一个更好的检索问题。
-
-            历史：
-            {history}
-
-            原始问题：
-            {question}
-
-            改写后的问题：
-            """,
+            template=RAG_REWRITE_PROMPT,
             input_variables=["question", "history"],
         )
 

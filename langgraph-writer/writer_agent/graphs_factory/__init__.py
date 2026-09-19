@@ -1,19 +1,19 @@
 """graphs_factory：LangGraph 图集合与注册中心。
 
 框架层（对齐 LangGraph-Chatchat graphs_factory）：
-- graphs_registry（rag_registry / agent_registry / graph_registry / all_graph_names）
+- _shared（registry + chat_node）
 - novelist（BaseAgentGraph 基类 + NovelistGraph 主图：意图识别 → 子图分派 → chatbot ⇄ tools）
 - base_rag（BaseRagGraph：Agentic RAG，label="rag"）
 
 导入本模块即注册全部图到 graphs_registry。
 """
 
-from . import graphs_registry  # noqa: F401
+from . import _shared  # noqa: F401
 from . import novelist  # noqa: F401
 from . import base_rag  # noqa: F401
 
 
-from .graphs_registry import (  # noqa: E402
+from ._shared.registry import (  # noqa: E402
     Graph,
     State,
     agent_registry,
@@ -24,8 +24,8 @@ from .graphs_registry import (  # noqa: E402
     rag_registry,
     register_graph,
 )
-from .novelist import BaseAgentGraph, NovelistGraph, ToolCallingAgentGraph  # noqa: E402
-from .base_rag import BaseRagGraph, RagState  # noqa: E402
+from .novelist.graph import BaseAgentGraph, NovelistGraph, ToolCallingAgentGraph  # noqa: E402
+from .base_rag.graph import BaseRagGraph, RagState  # noqa: E402
 
 __all__ = [
     "Graph",

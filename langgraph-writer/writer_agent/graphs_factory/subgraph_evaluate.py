@@ -11,7 +11,7 @@ from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 
-from .chat_node import build_tool_loop
+from ._shared.chat_node import build_tool_loop
 
 NODE_NAME = "evaluate"
 TOOL_NAMES = ["story_core_master", "dragon_ride_007", "urobuchi_gen", "anime_lightnovel_styles"]
