@@ -24,7 +24,14 @@ class BrainstormState(TypedDict, total=False):
     brainstorm_draft: str    # 头脑风暴草案
     core_concept: str        # 一句话高概念
 
+    # 推理循环字段
+    findings: str                    # 全局发现
+    call_count: int                  # 当前调用次数
+    max_calls: int                   # 最大调用次数
+    is_complete: bool                # 任务是否完成
+    pending_actions: List[dict]      # 待执行的动作列表
+    current_observations: List[str]  # 本轮观测结果
+
 
 NODE_NAME = "brainstorm"
 TOOL_NAMES = ["story_brainstorm"]
-AFTER_TOOLS_MSG = "构思工具执行完毕，请查看灵感方案并继续"

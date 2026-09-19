@@ -15,7 +15,14 @@ class DesignState(TypedDict, total=False):
     outline: str              # 大纲
     brainstorm_draft: str     # 头脑风暴草案（参考用）
 
+    # 推理循环字段
+    findings: str                    # 全局发现
+    call_count: int                  # 当前调用次数
+    max_calls: int                   # 最大调用次数
+    is_complete: bool                # 任务是否完成
+    pending_actions: List[dict]      # 待执行的动作列表
+    current_observations: List[str]  # 本轮观测结果
+
 
 NODE_NAME = "design"
 TOOL_NAMES = ["story_outline", "character_design", "worldbuilding"]
-AFTER_TOOLS_MSG = "设计工具执行完毕，请查看设计结果并继续"

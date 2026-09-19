@@ -1,9 +1,9 @@
 """构思子图：故事头脑风暴与灵感发散。
 
 子图结构（对齐 docs/subgraph_构思.mmd）:
-    START → chatbot(LLM+bind_tools) → tools_condition
-        ├── 有工具调用 → ToolNode(story_brainstorm) → interrupt → chatbot
-        └── 无工具调用 → END
+    check_limit → llm_reason → execute_actions → analyze → check_complete
+        → 完成 → conclusion → END
+        → 未完成 → check_limit（循环）
 """
 
 from langchain_openai import ChatOpenAI
@@ -11,8 +11,8 @@ from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 
-from .._shared.chat_node import build_tool_loop
-from .configs import NODE_NAME, TOOL_NAMES, AFTER_TOOLS_MSG, BrainstormState
+from .._shared.chat_node import build_reason_loop
+from .configs import NODE_NAME, TOOL_NAMES, BrainstormState
 
 
 def build_subgraph_brainstorm(
@@ -20,11 +20,12 @@ def build_subgraph_brainstorm(
     tools: list[BaseTool],
     checkpoint: BaseCheckpointSaver | None = None,
 ) -> CompiledStateGraph:
-    return build_tool_loop(
+    return build_reason_loop(
         name=NODE_NAME,
         tool_names=TOOL_NAMES,
         llm=llm,
         tools=tools,
         state_cls=BrainstormState,
+        max_calls=10,
         checkpoint=checkpoint,
     )
