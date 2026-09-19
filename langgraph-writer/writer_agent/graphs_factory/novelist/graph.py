@@ -31,7 +31,6 @@ from .configs import (
 )
 from .prompts import (
     INTENT_PROMPT_TEMPLATE,
-    INTENT_PROMPT_EXAMPLES,
     NOVELIST_SYSTEM_PROMPT,
 )
 
@@ -70,17 +69,8 @@ class BaseAgentGraph(Graph):
                  system_prompt: str | None = None):
         super().__init__(llm, tools, history_len, checkpoint)
 
-        cfg = self.SUBGRAPHS or {}
-        known = set(cfg.keys()) | FALLBACK_INTENTS
-        options = [f"- {k}：{v.get('description', '')}" for k, v in cfg.items()]
-        options += [f"- {i}：待补充描述" for i in sorted(FALLBACK_INTENTS) if i not in cfg]
-
-        intent_prompt_text = INTENT_PROMPT_TEMPLATE.format(
-            intent_options="\n".join(options),
-            intent_examples=INTENT_PROMPT_EXAMPLES,
-        )
         self.intent_prompt = ChatPromptTemplate.from_messages([
-            ("system", intent_prompt_text),
+            ("system", INTENT_PROMPT_TEMPLATE),
             ("placeholder", "{" + self.STATE["history"] + "}"),
         ])
         self.llm_with_intent = self.intent_prompt | self.llm

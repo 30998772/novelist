@@ -11,7 +11,7 @@ from typing import Optional
 from langchain_core.messages import HumanMessage
 
 from ..llm import get_llm
-from ..prompts import SKILL_RUNNER_PREFIX, SKILL_RUNNER_SUFFIX, SKILL_RUNNER_OUTPUT_INSTRUCTION
+from .prompts import SKILL_RUNNER_PREFIX, SKILL_RUNNER_SUFFIX, SKILL_RUNNER_OUTPUT_INSTRUCTION
 from ._files import load_skill, load_skill_retrieved, load_skill_with_references
 
 

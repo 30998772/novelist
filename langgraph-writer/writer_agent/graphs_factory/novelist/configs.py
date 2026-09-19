@@ -4,13 +4,15 @@
 graph.py 按需导入。
 """
 
-from ..subgraph_brainstorm import build_subgraph_brainstorm
-from ..subgraph_design import build_subgraph_design
-from ..subgraph_draft import build_subgraph_draft
-from ..subgraph_review import build_subgraph_review
-from ..subgraph_revise import build_subgraph_revise
-from ..subgraph_evaluate import build_subgraph_evaluate
-from ..subgraph_package import build_subgraph_package
+from langgraph.graph import END
+
+from ..brainstorm import build_subgraph_brainstorm
+from ..design import build_subgraph_design
+from ..draft import build_subgraph_draft
+from ..review import build_subgraph_review
+from ..revise import build_subgraph_revise
+from ..evaluate import build_subgraph_evaluate
+from ..package import build_subgraph_package
 
 # ════════════════════════════════════════════════════════════════
 # 图拓扑
@@ -31,7 +33,7 @@ ENTRY = "history"
 
 EDGES = [
     ["history", "intent"],
-    ["clarify", "END"],
+    ["clarify", END],
     ["generic", "dispatch"],
     ["collect", "chatbot"],
     ["tools", "chatbot"],
