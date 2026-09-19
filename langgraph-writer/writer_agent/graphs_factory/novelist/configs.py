@@ -4,7 +4,11 @@
 graph.py 按需导入。
 """
 
+from typing import Annotated, List, Optional, TypedDict
+
+from langchain_core.messages import BaseMessage
 from langgraph.graph import END
+from langgraph.graph.message import add_messages
 
 from ..brainstorm import build_subgraph_brainstorm
 from ..design import build_subgraph_design
@@ -13,6 +17,28 @@ from ..review import build_subgraph_review
 from ..revise import build_subgraph_revise
 from ..evaluate import build_subgraph_evaluate
 from ..package import build_subgraph_package
+
+
+# ════════════════════════════════════════════════════════════════
+# NovelistGraph 专用 State
+# ════════════════════════════════════════════════════════════════
+
+class NovelistState(TypedDict, total=False):
+    """小说家主图状态，包含消息、意图识别和任务字段。"""
+
+    # 消息队列（LangGraph add_messages 自动合并）
+    messages: Annotated[List[BaseMessage], add_messages]
+    history: Optional[List[BaseMessage]]
+
+    # 意图识别
+    intent_list: List[str]
+    current_intent: str
+    intent_index: int
+    intent_results: dict
+    clarification_attempts: int
+
+    # 任务
+    task: str
 
 # ════════════════════════════════════════════════════════════════
 # 图拓扑

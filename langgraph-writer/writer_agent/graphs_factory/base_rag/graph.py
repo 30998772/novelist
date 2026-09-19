@@ -30,24 +30,16 @@ from pydantic import BaseModel, Field
 from ...state import WriterState
 from ...tools_factory import get_tool
 from .._shared.registry import Graph, register_graph
-from .configs import TOOL_NAMES as CFG_TOOL_NAMES
+from .configs import (
+    TOOL_NAMES as CFG_TOOL_NAMES,
+    RagState,
+)
 from .prompts import (
     RAG_CHATBOT_PROMPT,
     RAG_GRADE_PROMPT,
     RAG_GENERATE_PROMPT,
     RAG_REWRITE_PROMPT,
 )
-
-
-class RagState(WriterState, total=False):
-    """RAG 图状态：在 WriterState 基础上补充检索相关字段。"""
-
-    knowledge_base: str
-    top_k: int
-    score_threshold: float
-    question: str
-    docs: List[Dict]
-    retrieve_retry: int
 
 
 @register_graph

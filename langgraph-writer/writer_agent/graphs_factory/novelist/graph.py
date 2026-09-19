@@ -1,6 +1,6 @@
 """通用「LLM + 工具」聊天图（对齐 LangGraph-Chatchat base_agent.BaseAgentGraph）。
 
-图结构：history_manager → intent_recognition → 遍历子图 → 收集结果 → chatbot ⇄ tools
+图结构：history_manager → intent_recognition → 遍历子图 → 收集结果 → chatbot(格式化)
 
 拓扑全部由类上的配置声明：NODES / EDGES / CONDITIONAL_EDGES / SUBGRAPHS。
 加节点、加边、加子图只改配置，不用动 get_graph。
@@ -15,6 +15,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
+from ...logging import get_logger
 from ...state import WriterState
 from .._shared.chat_node import build_tool_loop, make_chat_node
 from .._shared.registry import Graph, register_graph
@@ -28,11 +29,15 @@ from .configs import (
     SUBGRAPHS as CFG_SUBGRAPHS,
     MAX_CLARIFICATION_ATTEMPTS,
     FALLBACK_INTENTS,
+    NovelistState,
 )
 from .prompts import (
     INTENT_PROMPT_TEMPLATE,
+    INTENT_OUTPUT_SCHEMA,
     NOVELIST_SYSTEM_PROMPT,
 )
+
+logger = get_logger("novelist")
 
 
 class BaseAgentGraph(Graph):
@@ -69,17 +74,25 @@ class BaseAgentGraph(Graph):
                  system_prompt: str | None = None):
         super().__init__(llm, tools, history_len, checkpoint)
 
+        cfg = self.SUBGRAPHS or {}
+        known = set(cfg.keys()) | FALLBACK_INTENTS
+
+        # 意图识别：JSON Schema 强制输出
         self.intent_prompt = ChatPromptTemplate.from_messages([
             ("system", INTENT_PROMPT_TEMPLATE),
             ("placeholder", "{" + self.STATE["history"] + "}"),
         ])
-        self.llm_with_intent = self.intent_prompt | self.llm
+        self.llm_with_intent = self.intent_prompt | self.llm.with_structured_output(
+            INTENT_OUTPUT_SCHEMA,
+            method="json_mode",
+        )
 
+        # 主聊天：格式化回复，不绑定工具
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt or self.system_prompt),
             ("placeholder", "{" + self.STATE["history"] + "}"),
         ])
-        self.llm_with_tools = prompt | self.llm.bind_tools(self.tools)
+        self.llm_with_chatbot = prompt | self.llm
 
         self._valid_intents: set[str] = known
         self._subgraphs: dict[str, CompiledStateGraph] = {}
@@ -96,6 +109,11 @@ class BaseAgentGraph(Graph):
                     checkpoint=self.checkpoint,
                 )
 
+        logger.info(
+            "BaseAgentGraph initialized: name=%s, valid_intents=%s, subgraphs=%s",
+            self.name, self._valid_intents, list(cfg.keys()),
+        )
+
     # ------------------------------------------------------------------
     # 节点函数表（逻辑名 -> 可调用）
     # ------------------------------------------------------------------
@@ -107,7 +125,7 @@ class BaseAgentGraph(Graph):
             "dispatch": self.dispatch_next,
             "generic": self.execute_subgraph,
             "collect": self.collect_results,
-            "chatbot": make_chat_node(self.llm_with_tools),
+            "chatbot": make_chat_node(self.llm_with_chatbot),
             "tools": ToolNode(tools=self.tools),
         }
 
@@ -124,38 +142,32 @@ class BaseAgentGraph(Graph):
                     continue
                 filtered.append(message)
             state[self.STATE["history"]] = filtered[-self.history_len:]
+            logger.debug("history_manager: filtered %d messages, kept %d",
+                         len(state[self.STATE["messages"]]), len(state[self.STATE["history"]]))
             return state
         except Exception as e:
+            logger.error("history_manager failed: %s", e)
             raise Exception(f"Filtering messages error: {e}")
 
     # ------------------------------------------------------------------
-    # 意图识别
+    # 意图识别（JSON Schema）
     # ------------------------------------------------------------------
-    def _parse_intents(self, content) -> list[str]:
-        import json
-        import re
-
-        if isinstance(content, list):
-            content = "".join(
-                b.get("text", "") if isinstance(b, dict) else str(b) for b in content
-            )
-        content = re.sub(r"```(?:json)?|```", "", str(content or "").strip()).strip()
-
-        match = re.search(r"\[[^\[\]]*\]", content, re.S)
-        if not match:
-            return []
-        try:
-            parsed = json.loads(match.group(0))
-        except json.JSONDecodeError:
-            return [i for i in self._valid_intents if i in content]
-        if not isinstance(parsed, list):
-            return []
-        return [i for i in parsed if isinstance(i, str) and i in self._valid_intents]
-
     def intent_recognition(self, state: WriterState) -> WriterState:
         try:
-            response = self.llm_with_intent.invoke(state)
-            intents = self._parse_intents(response.content)
+            history = state.get(self.STATE["history"]) or []
+            last_human = ""
+            for msg in reversed(history):
+                if isinstance(msg, HumanMessage):
+                    last_human = msg.content if isinstance(msg.content, str) else str(msg.content)
+                    break
+            logger.info("intent_recognition: user input = %s", repr(last_human[:200]))
+
+            result = self.llm_with_intent.invoke(state)
+            raw_intents = result.get("intents", []) if isinstance(result, dict) else []
+            intents = [i for i in raw_intents if i in self._valid_intents]
+
+            logger.info("intent_recognition: raw = %s, valid = %s", raw_intents, intents)
+
             state[self.STATE["intents"]] = intents
             state[self.STATE["current"]] = intents[0] if intents else ""
             state[self.STATE["index"]] = 0
@@ -164,8 +176,11 @@ class BaseAgentGraph(Graph):
                 state[self.STATE["clarify_count"]] = 0
             else:
                 state[self.STATE["clarify_count"]] = state.get(self.STATE["clarify_count"], 0) + 1
+                logger.warning("intent_recognition: no valid intent, clarify_count = %d",
+                               state[self.STATE["clarify_count"]])
             return state
         except Exception as e:
+            logger.error("intent_recognition failed: %s", e)
             raise Exception(f"Intent recognition error: {e}")
 
     # ------------------------------------------------------------------
@@ -176,12 +191,14 @@ class BaseAgentGraph(Graph):
         msg = AIMessage(content=f"我不太确定你想做什么，请告诉我更具体的需求，比如：\n{options}\n- 其他")
         state[self.STATE["messages"]] = [msg]
         state[self.STATE["history"]].append(msg)
+        logger.info("ask_clarification: asking user for clarification")
         return state
 
     def end_conversation(self, state: WriterState) -> WriterState:
         msg = AIMessage(content="抱歉，我无法识别你的意图。请尝试更具体的描述，或者输入 /exit 退出。")
         state[self.STATE["messages"]] = [msg]
         state[self.STATE["history"]].append(msg)
+        logger.info("end_conversation: unable to identify intent, ending")
         return state
 
     # ------------------------------------------------------------------
@@ -189,7 +206,9 @@ class BaseAgentGraph(Graph):
     # ------------------------------------------------------------------
     def route_after_intent(self, state: WriterState) -> str:
         if not state.get(self.STATE["intents"]):
+            logger.info("route_after_intent: no intents -> clarify")
             return self.ROUTES["clarify"]
+        logger.info("route_after_intent: intents found -> dispatch")
         return self.ROUTES["dispatch"]
 
     def dispatch_next(self, state: WriterState) -> WriterState:
@@ -198,22 +217,59 @@ class BaseAgentGraph(Graph):
         if idx < len(intents):
             state[self.STATE["current"]] = intents[idx]
             state[self.STATE["index"]] = idx + 1
+            logger.info("dispatch_next: current = %s, index = %d/%d",
+                        intents[idx], idx + 1, len(intents))
         else:
             state[self.STATE["current"]] = ""
+            logger.info("dispatch_next: all intents dispatched")
         return state
 
     def route_dispatch(self, state: WriterState) -> str:
         intent = state.get(self.STATE["current"])
         if not intent:
+            logger.info("route_dispatch: no current intent -> collect")
             return self.ROUTES["collect"]
         sub = (self.SUBGRAPHS or {}).get(intent)
-        return sub["node_name"] if sub else self.ROUTES["generic"]
+        target = sub["node_name"] if sub else self.ROUTES["generic"]
+        logger.info("route_dispatch: intent=%s -> target=%s", intent, target)
+        return target
 
     def execute_subgraph(self, state: WriterState) -> WriterState:
+        """运行子图并把结果存入 intent_results。"""
         intent = state.get(self.STATE["current"], "")
+        sub = (self.SUBGRAPHS or {}).get(intent)
+
+        if not sub or intent not in self._subgraphs:
+            results = dict(state.get(self.STATE["results"]) or {})
+            results[intent] = f"「{intent}」子图尚未实装"
+            state[self.STATE["results"]] = results
+            logger.warning("execute_subgraph: no subgraph for intent=%s", intent)
+            return state
+
+        # 运行子图
+        subgraph = self._subgraphs[intent]
+        sub_state = subgraph.invoke(state)
+
+        # 从子图输出中提取最后一条 AI 消息作为结果
+        sub_messages = sub_state.get("messages") or []
+        result_text = ""
+        for msg in reversed(sub_messages):
+            if isinstance(msg, AIMessage) and not msg.tool_calls:
+                result_text = msg.content if isinstance(msg.content, str) else str(msg.content)
+                break
+
+        if not result_text:
+            result_text = f"「{intent}」子图未产出有效结果"
+
         results = dict(state.get(self.STATE["results"]) or {})
-        results[intent] = f"「{intent}」子图尚未实装（占位）。本轮识别意图：{state.get(self.STATE['intents'])}"
+        results[intent] = result_text
         state[self.STATE["results"]] = results
+
+        # 把子图产生的消息合并回主图
+        state[self.STATE["messages"]] = sub_messages
+        state[self.STATE["history"]] = sub_state.get("history") or state.get(self.STATE["history"]) or []
+
+        logger.info("execute_subgraph: intent=%s, result_len=%d", intent, len(result_text))
         return state
 
     def collect_results(self, state: WriterState) -> WriterState:
@@ -223,6 +279,7 @@ class BaseAgentGraph(Graph):
         state[self.STATE["history"]] = (state.get(self.STATE["history"]) or []) + [
             HumanMessage(content=f"以下是子图/工具产出，请据此并结合用户问题作答：\n{result_text}")
         ]
+        logger.info("collect_results: collected %d results", len(results))
         return state
 
     # ------------------------------------------------------------------
@@ -304,4 +361,4 @@ class NovelistGraph(BaseAgentGraph):
     label = "agent"
     title = "小说家"
     tool_names = ["*"]
-    system_prompt = NOVELIST_SYSTEM_PROMPT
+    s = NOVELIST_SYSTEM_PROMPT
