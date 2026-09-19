@@ -1,0 +1,10 @@
+langgraph>=0.2.10
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+mcp>=1.0.0
+python-dotenv>=1.0.0
+pydantic<3,>=2.0.0
+
+[dev]
+langgraph-cli[inmem]>=0.1.71

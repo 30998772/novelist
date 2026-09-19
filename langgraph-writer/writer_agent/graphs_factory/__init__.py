@@ -5,9 +5,6 @@
 - novelist（BaseAgentGraph 基类 + NovelistGraph 主图：意图识别 → 子图分派 → chatbot ⇄ tools）
 - base_rag（BaseRagGraph：Agentic RAG，label="rag"）
 
-当前仅保留以上图；content_reviser / plan_and_execute / reflexion 等已移除，
-后续按需在 novelist.py 中以 BaseAgentGraph 子类的形式补回。
-
 导入本模块即注册全部图到 graphs_registry。
 """
 
