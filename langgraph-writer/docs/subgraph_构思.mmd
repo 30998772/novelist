@@ -1,7 +1,8 @@
 graph TB
-    START((开始)) --> CHATBOT["chatbot<br/>LLM+bind_tools"]
+    START((开始)) --> CHATBOT["brainstorm_chatbot<br/>LLM+bind_tools"]
     CHATBOT --> TC{"tools_condition"}
     TC -- "有" --> TOOLS["ToolNode<br/>story_brainstorm"]
-    TC -- "无" --> END((结束))
-    TOOLS --> INTERRUPT["interrupt<br/>等待用户输入"]
-    INTERRUPT --> CHATBOT
+    TC -- "无" --> FINISH["brainstorm_finish<br/>interrupt 等待用户确认"]
+    TOOLS --> CHATBOT
+    FINISH -- "用户确认通过" --> END((结束))
+    FINISH -- "用户不满意" --> CHATBOT

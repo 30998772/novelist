@@ -12,7 +12,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
 
 from .._shared.chat_node import build_tool_loop
-from .configs import NODE_NAME, TOOL_NAMES, AFTER_TOOLS_MSG
+from .configs import NODE_NAME, TOOL_NAMES, AFTER_TOOLS_MSG, EvaluateState
 
 
 def build_subgraph_evaluate(
@@ -25,6 +25,7 @@ def build_subgraph_evaluate(
         tool_names=TOOL_NAMES,
         llm=llm,
         tools=tools,
+        state_cls=EvaluateState,
         after_tools_message=AFTER_TOOLS_MSG,
         checkpoint=checkpoint,
     )

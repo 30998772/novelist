@@ -33,7 +33,7 @@ from .configs import (
 )
 from .prompts import (
     INTENT_PROMPT_TEMPLATE,
-    INTENT_OUTPUT_SCHEMA,
+    IntentOutput,
     NOVELIST_SYSTEM_PROMPT,
 )
 
@@ -83,8 +83,8 @@ class BaseAgentGraph(Graph):
             ("placeholder", "{" + self.STATE["history"] + "}"),
         ])
         self.llm_with_intent = self.intent_prompt | self.llm.with_structured_output(
-            INTENT_OUTPUT_SCHEMA,
-            method="json_mode",
+            IntentOutput,
+            method="json_schema",
         )
 
         # 主聊天：格式化回复，不绑定工具
@@ -163,7 +163,12 @@ class BaseAgentGraph(Graph):
             logger.info("intent_recognition: user input = %s", repr(last_human[:200]))
 
             result = self.llm_with_intent.invoke(state)
-            raw_intents = result.get("intents", []) if isinstance(result, dict) else []
+            if hasattr(result, "intents"):
+                raw_intents = result.intents
+            elif isinstance(result, dict):
+                raw_intents = result.get("intents", [])
+            else:
+                raw_intents = []
             intents = [i for i in raw_intents if i in self._valid_intents]
 
             logger.info("intent_recognition: raw = %s, valid = %s", raw_intents, intents)
