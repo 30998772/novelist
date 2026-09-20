@@ -6,6 +6,7 @@
 """
 
 import json
+import logging
 from typing import Annotated, List, Optional, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -20,16 +21,19 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import interrupt
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger("chat_node")
+
 
 def make_chat_node(llm_with_tools):
     def chat_node(state: dict) -> dict:
         messages = state.get("messages") or []
         if messages and isinstance(messages[-1], ToolMessage):
             state["history"] = (state.get("history") or []) + [messages[-1]]
-        # 判断是链（需要 dict）还是原始 LLM（需要 messages 列表）
+
+        # 调用 LLM
         try:
             out = llm_with_tools.invoke(state)
-        except TypeError:
+        except (TypeError, ValueError):
             out = llm_with_tools.invoke(messages)
         state["messages"] = [out]
         state["history"] = (state.get("history") or []) + [out]
@@ -101,6 +105,7 @@ def build_reason_loop(
 
     def init_state(state: dict) -> dict:
         """初始化状态：设置项目目录。"""
+        logger.info("[reason_loop] init_state: project_dir=%s", _project_dir)
         if _project_dir:
             state["project_dir"] = _project_dir
         if "call_count" not in state or state["call_count"] is None:
@@ -120,6 +125,7 @@ def build_reason_loop(
     def check_limit(state: dict) -> dict:
         """检查调用次数是否超限。"""
         call_count = state.get("call_count", 0)
+        logger.info("[reason_loop] check_limit: call_count=%s, max_calls=%s", call_count, max_calls)
         if call_count >= max_calls:
             state["is_complete"] = True  # 强制结束
         return state
@@ -131,44 +137,54 @@ def build_reason_loop(
 
     def llm_reason(state: dict) -> dict:
         """LLM 思考并输出动作集合。"""
+        logger.info("[reason_loop] llm_reason: starting")
         findings = state.get("findings", "")
         task = state.get("task", "")
         history = state.get("history") or []
         messages = state.get("messages") or []
 
-        # 构建 prompt
         system_prompt = f"""你是{task}的执行助手。
 当前发现：{findings}
 
 可用工具：{[t.name for t in picked]}
 
-请分析当前情况，决定下一步动作：
-1. 如果需要查询信息，输出 query 类型动作
-2. 如果需要问用户，输出 ask 类型动作
-3. 如果任务完成，设置 is_complete=true"""
-
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            ("placeholder", "{messages}"),
-        ])
+请分析当前情况，决定下一步动作。输出 JSON 格式：
+{{"actions": [{{"type": "query", "tool": "工具名", "input": "输入内容"}}], "is_complete": false}}
+或任务完成时：{{"actions": [], "is_complete": true}}"""
 
         try:
-            llm_with_structured = prompt | llm.with_structured_output(ActionOutput)
-            result = llm_with_structured.invoke({"messages": messages + history})
-            state["pending_actions"] = [a for a in result.actions] if result.actions else []
-            state["is_complete"] = result.is_complete
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                ("placeholder", "{messages}"),
+            ])
+            chain = prompt | llm
+            result = chain.invoke({"messages": messages + history}, config={"timeout": 30})
+
+            # 解析 JSON 响应
+            import re
+            text = result.content
+            json_match = re.search(r'\{.*\}', text, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+                state["pending_actions"] = data.get("actions", [])
+                state["is_complete"] = data.get("is_complete", False)
+            else:
+                state["pending_actions"] = []
+                state["is_complete"] = True
+
+            logger.info("[reason_loop] llm_reason: done, actions=%s", state["pending_actions"])
         except Exception as e:
-            # LLM 调用失败时，标记完成并记录错误
+            logger.error("[reason_loop] llm_reason failed: %s", e)
             state["is_complete"] = True
             state["findings"] = f"LLM 调用失败: {e}"
 
         state["call_count"] = state.get("call_count", 0) + 1
-
         return state
 
     def execute_actions(state: dict) -> dict:
         """执行动作（查询或提问）。"""
         actions = state.get("pending_actions", []) or []
+        logger.info("[reason_loop] execute_actions: actions=%s", actions)
         observations = []
 
         for action in actions:
@@ -296,6 +312,7 @@ def build_tool_loop(
     llm: ChatOpenAI,
     tools: list[BaseTool],
     state_cls: type,
+    system_prompt: str = "",
     checkpoint: BaseCheckpointSaver | None = None,
 ) -> CompiledStateGraph:
     """构建 chatbot ⇄ tools 循环，自动运行到 END。
@@ -306,7 +323,19 @@ def build_tool_loop(
     node_tools = f"{name}_tools"
 
     picked = [t for t in tools if t.name in set(tool_names)]
-    chat_node = make_chat_node(llm.bind_tools(picked))
+
+    # 如果有 system prompt，包装 LLM
+    if system_prompt:
+        from langchain_core.prompts import ChatPromptTemplate
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("placeholder", "{messages}"),
+        ])
+        llm_with_tools = prompt | llm.bind_tools(picked)
+    else:
+        llm_with_tools = llm.bind_tools(picked)
+
+    chat_node = make_chat_node(llm_with_tools)
     tool_node = ToolNode(tools=picked)
 
     builder = StateGraph(state_cls)

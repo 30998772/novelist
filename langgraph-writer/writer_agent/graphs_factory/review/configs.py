@@ -28,5 +28,8 @@ TOOL_NAMES = [
     "action_scene",
     "suspense_twist",
     "narrative_viewpoint",
+    "write_file",
+    "read_file",
+    "list_files",
 ]
 AFTER_TOOLS_MSG = "审稿工具执行完毕，请查看审稿结果并继续"

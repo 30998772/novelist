@@ -26,5 +26,5 @@ class DraftState(TypedDict, total=False):
 
 
 NODE_NAME = "draft"
-TOOL_NAMES = ["chapter_drafting", "add_setting"]
+TOOL_NAMES = ["chapter_drafting", "add_setting", "write_file", "read_file", "list_files"]
 AFTER_TOOLS_MSG = "创作工具执行完毕，请查看正文结果并继续"

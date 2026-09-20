@@ -40,10 +40,19 @@ def read_file(path: str, project_dir: str = "") -> str:
 )
 def write_file(path: str, content: str, project_dir: str = "") -> str:
     """Write content to a file (overwrites)."""
+    import asyncio
     p = _resolve(path, project_dir)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
+        # 如果在异步上下文中，用线程池写入
+        try:
+            loop = asyncio.get_running_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                loop.run_in_executor(pool, lambda: p.write_text(content, encoding="utf-8"))
+        except RuntimeError:
+            # 同步上下文，直接写
+            p.write_text(content, encoding="utf-8")
         return f"（已写入: {p}）"
     except Exception as exc:
         return f"（写入失败: {exc}）"

@@ -17,5 +17,5 @@ class ReviseState(TypedDict, total=False):
 
 
 NODE_NAME = "revise"
-TOOL_NAMES = ["revision", "writing_style", "story_core_master"]
+TOOL_NAMES = ["revision", "writing_style", "story_core_master", "write_file", "read_file", "list_files"]
 AFTER_TOOLS_MSG = "修改工具执行完毕，请查看修改结果并继续"
