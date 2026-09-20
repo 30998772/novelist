@@ -12,6 +12,7 @@ class DesignState(TypedDict, total=False):
     messages: Annotated[List[BaseMessage], add_messages]
     history: Optional[List[BaseMessage]]
     task: str
+    project_dir: str          # 项目目录
     outline: str              # 大纲
     brainstorm_draft: str     # 头脑风暴草案（参考用）
 
@@ -25,4 +26,5 @@ class DesignState(TypedDict, total=False):
 
 
 NODE_NAME = "design"
-TOOL_NAMES = ["story_outline", "character_design", "worldbuilding"]
+TOOL_NAMES = ["story_outline", "character_design", "worldbuilding", "write_file", "read_file", "list_files"]
+PROJECT_DIR = "novels/新书"  # 默认项目目录，可按需修改

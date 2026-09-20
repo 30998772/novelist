@@ -102,8 +102,8 @@ STATE = {
 SUBGRAPHS = {
     "构思": {
         "node_name": "subgraph_brainstorm",
-        "tools": ["story_brainstorm"],
-        "description": "找灵感、定题材、开新书、讨论核心冲突",
+        "tools": ["story_brainstorm", "write_file", "read_file", "list_files"],
+        "description": "找灵感、定题材、开新书、讨论核心冲突，可写入文件",
         "build_func": build_subgraph_brainstorm,
     },
     "设计": {

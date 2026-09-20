@@ -1,8 +1,4 @@
-"""基础文件工具（无 LLM，供 agent 图读取/写入小说项目文件）。
-
-与原 opencode agent 依赖编辑器文件能力对应：agent 需自行读取
-`SKILL.md / 设定/ / 章节大纲/ / 正文/` 等文件后再调用 skill 工具。
-"""
+"""基础文件工具（无 LLM，供 agent 图读取/写入小说项目文件）。"""
 
 import fnmatch
 import os
@@ -10,53 +6,57 @@ from pathlib import Path
 
 from .registry import regist_tool
 
+# 项目根目录（novelist/）
+_NOVELS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "novelist"
 
-def _resolve(path: str) -> Path:
+
+def _resolve(path: str, project_dir: str = "") -> Path:
+    """解析路径：如果 project_dir 非空，基于 project_dir 解析；否则基于 _NOVELS_DIR。"""
     p = Path(path).expanduser()
-    if not p.is_absolute():
-        p = Path.cwd() / p
-    return p
+    if p.is_absolute():
+        return p
+    base = _NOVELS_DIR / project_dir if project_dir else _NOVELS_DIR
+    return base / p
 
 
 @regist_tool(
     title="读取文件",
-    description="读取小说项目中的任意文本文件（SKILL.md、设定、大纲、正文、修改记录等）并返回内容。",
+    description="读取小说项目中的任意文本文件并返回内容。路径相对于项目目录（书名/）。",
 )
-def read_file(path: str) -> str:
+def read_file(path: str, project_dir: str = "") -> str:
     """Read a text file from the novel project."""
-    p = _resolve(path)
+    p = _resolve(path, project_dir)
     if not p.exists():
         return f"（文件不存在: {p}）"
     try:
         return p.read_text(encoding="utf-8")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"（读取失败: {exc}）"
 
 
 @regist_tool(
     title="写入文件",
-    description="把内容写入小说项目文件（覆盖）。用于保存章节正文、大纲、设定、修改记录、推荐平台档案等。路径相对项目目录或写绝对路径。",
+    description="把内容写入小说项目文件（覆盖）。路径相对于项目目录（书名/）。自动创建父目录。",
 )
-def write_file(path: str, content: str) -> str:
+def write_file(path: str, content: str, project_dir: str = "") -> str:
     """Write content to a file (overwrites)."""
-    p = _resolve(path)
+    p = _resolve(path, project_dir)
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
         return f"（已写入: {p}）"
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return f"（写入失败: {exc}）"
 
 
 @regist_tool(
     title="搜索文件内容",
-    description="在指定目录下的文本文件中按关键词/正则搜索（如查人名、地名、伏笔关键词是否出现）。",
+    description="在项目目录下按关键词/正则搜索。",
 )
-def search_files(pattern: str, directory: str = "") -> str:
-    """Search text files under directory for pattern, return file:line matches."""
-    root = _resolve(directory) if directory else Path.cwd()
+def search_files(pattern: str, directory: str = "", project_dir: str = "") -> str:
+    """Search text files under directory for pattern."""
+    root = _resolve(directory, project_dir)
     import re
-
     try:
         regex = re.compile(pattern)
     except re.error as exc:
@@ -72,18 +72,18 @@ def search_files(pattern: str, directory: str = "") -> str:
                 for i, line in enumerate(Path(fp).read_text(encoding="utf-8").splitlines(), 1):
                     if regex.search(line):
                         hits.append(f"{fp}:{i}: {line.strip()[:200]}")
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
     return "\n".join(hits) if hits else "（无匹配）"
 
 
 @regist_tool(
     title="列出文件",
-    description="列出目录结构（含文件与子目录名），用于确认小说项目/分部/章节布局。",
+    description="列出项目目录结构。",
 )
-def list_files(directory: str = "", pattern: str = "*") -> str:
+def list_files(directory: str = "", pattern: str = "*", project_dir: str = "") -> str:
     """List files under directory matching glob pattern."""
-    root = _resolve(directory) if directory else Path.cwd()
+    root = _resolve(directory, project_dir)
     if not root.exists():
         return f"（目录不存在: {root}）"
     lines = []
@@ -99,3 +99,50 @@ def list_files(directory: str = "", pattern: str = "*") -> str:
             if fnmatch.fnmatch(fn, pattern):
                 lines.append(f"{prefix}  {fn}")
     return "\n".join(lines) if lines else "（空目录）"
+
+
+@regist_tool(
+    title="创建项目目录",
+    description="为新书创建标准目录结构。传入书名，自动创建：设定/、章节大纲/、正文/、系列规划/ 等文件夹及基础文件。",
+)
+def create_project(book_title: str, genre: str = "", summary: str = "") -> str:
+    """Create project directory structure for a new book. Creates folders and base files."""
+    base = _NOVELS_DIR / book_title
+    try:
+        # 创建目录
+        for d in ["设定", "设定/世界观设定", "设定/角色设定", "章节大纲", "正文", "系列规划"]:
+            (base / d).mkdir(parents=True, exist_ok=True)
+
+        # 写入 README.md
+        readme = f"""# 《{book_title}》
+
+## 项目简介
+- **题材**：{genre or '待定'}
+- **核心冲突**：{summary or '待定'}
+
+## 目录结构
+```
+{book_title}/
+├── SKILL.md           # 本书专属规范
+├── README.md          # 项目说明
+├── 设定/
+│   ├── 世界观设定/
+│   └── 角色设定/
+├── 章节大纲/
+│   ├── 总纲.md        # 全书总览
+│   └── 逐章卡片.md    # 逐章大纲
+├── 正文/              # 章节正文
+└── 系列规划/          # 分卷结构
+```
+"""
+        (base / "README.md").write_text(readme, encoding="utf-8")
+
+        # 写入空 SKILL.md
+        (base / "SKILL.md").write_text(f"# 《{book_title}》创作规范\n\n## 类型定位\n{genre or '待定'}\n", encoding="utf-8")
+
+        # 写入空总纲
+        (base / "章节大纲" / "总纲.md").write_text(f"# 《{book_title}》总纲\n\n## 故事梗概\n\n## 人物表\n\n## 伏笔登记\n", encoding="utf-8")
+
+        return f"（已创建项目目录: {base}）"
+    except Exception as exc:
+        return f"（创建失败: {exc}）"

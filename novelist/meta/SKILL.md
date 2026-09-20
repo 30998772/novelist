@@ -5,7 +5,7 @@ description: Meta叙诡悬疑小说《废稿》专属写作规范。凡涉及本
 
 # 本书专属 Skill：《废稿》Meta 叙诡长篇
 
-> 与 `outline/SKILL.md`（自传体那本）互不干涉；两本书文件分属 `outline/` 与 `meta/`。
+> 与 `../outline/SKILL.md`（自传体那本）互不干涉；两本书文件分属 `../outline` 与 ``。
 
 ## 一、这本书是什么
 

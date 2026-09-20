@@ -32,4 +32,4 @@
 
 ## 6. 归档
 
-- [x] 6.1 运行 `openspec validate` 与 `openspec archive`，确认变更归档后主 spec 生成于 `openspec/specs/workflow-scheduling/`
+- [x] 6.1 运行 `openspec validate` 与 `openspec archive`，确认变更归档后主 spec 生成于 `../../../specs/workflow-scheduling`

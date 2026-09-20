@@ -26,7 +26,11 @@ def make_chat_node(llm_with_tools):
         messages = state.get("messages") or []
         if messages and isinstance(messages[-1], ToolMessage):
             state["history"] = (state.get("history") or []) + [messages[-1]]
-        out = llm_with_tools.invoke(messages)
+        # 判断是链（需要 dict）还是原始 LLM（需要 messages 列表）
+        try:
+            out = llm_with_tools.invoke(state)
+        except TypeError:
+            out = llm_with_tools.invoke(messages)
         state["messages"] = [out]
         state["history"] = (state.get("history") or []) + [out]
         return state
@@ -76,6 +80,7 @@ def build_reason_loop(
     llm: ChatOpenAI,
     tools: list[BaseTool],
     state_cls: type,
+    project_dir: str = "",
     max_calls: int = 10,
     checkpoint: BaseCheckpointSaver | None = None,
 ) -> CompiledStateGraph:
@@ -88,9 +93,29 @@ def build_reason_loop(
 
     Args:
         state_cls: 子图专用 State 类（必须传入）。
+        project_dir: 项目目录路径。
         max_calls: 最大调用次数。
     """
     picked = [t for t in tools if t.name in set(tool_names)]
+    _project_dir = project_dir
+
+    def init_state(state: dict) -> dict:
+        """初始化状态：设置项目目录。"""
+        if _project_dir:
+            state["project_dir"] = _project_dir
+        if "call_count" not in state or state["call_count"] is None:
+            state["call_count"] = 0
+        if "max_calls" not in state or state["max_calls"] is None:
+            state["max_calls"] = max_calls
+        if "findings" not in state or state["findings"] is None:
+            state["findings"] = ""
+        if "is_complete" not in state or state["is_complete"] is None:
+            state["is_complete"] = False
+        if "pending_actions" not in state or state["pending_actions"] is None:
+            state["pending_actions"] = []
+        if "current_observations" not in state or state["current_observations"] is None:
+            state["current_observations"] = []
+        return state
 
     def check_limit(state: dict) -> dict:
         """检查调用次数是否超限。"""
@@ -127,11 +152,16 @@ def build_reason_loop(
             ("placeholder", "{messages}"),
         ])
 
-        llm_with_structured = prompt | llm.with_structured_output(ActionOutput)
-        result = llm_with_structured.invoke({"messages": messages + history})
+        try:
+            llm_with_structured = prompt | llm.with_structured_output(ActionOutput)
+            result = llm_with_structured.invoke({"messages": messages + history})
+            state["pending_actions"] = [a for a in result.actions] if result.actions else []
+            state["is_complete"] = result.is_complete
+        except Exception as e:
+            # LLM 调用失败时，标记完成并记录错误
+            state["is_complete"] = True
+            state["findings"] = f"LLM 调用失败: {e}"
 
-        state["pending_actions"] = [a for a in result.actions] if result.actions else []
-        state["is_complete"] = result.is_complete
         state["call_count"] = state.get("call_count", 0) + 1
 
         return state
@@ -186,8 +216,12 @@ def build_reason_loop(
             ("system", system_prompt),
         ])
 
-        result = llm.invoke(prompt.format_messages())
-        state["findings"] = result.content
+        try:
+            result = llm.invoke(prompt.format_messages())
+            state["findings"] = result.content
+        except Exception as e:
+            state["findings"] = f"分析失败: {e}"
+
         state["pending_actions"] = []
         state["current_observations"] = []
 
@@ -207,22 +241,28 @@ def build_reason_loop(
             ("system", system_prompt),
         ])
 
-        result = llm.invoke(prompt.format_messages())
-        state["messages"] = [AIMessage(content=result.content)]
-        state["history"] = (state.get("history") or []) + [result.content]
+        try:
+            result = llm.invoke(prompt.format_messages())
+            state["messages"] = [AIMessage(content=result.content)]
+            state["history"] = (state.get("history") or []) + [result.content]
+        except Exception as e:
+            state["messages"] = [AIMessage(content=f"结论生成失败: {e}")]
+            state["history"] = (state.get("history") or []) + [f"结论生成失败: {e}"]
 
         return state
 
     # 构建图
     builder = StateGraph(state_cls)
 
+    builder.add_node(f"{name}_init", init_state)
     builder.add_node(f"{name}_check_limit", check_limit)
     builder.add_node(f"{name}_reason", llm_reason)
     builder.add_node(f"{name}_execute", execute_actions)
     builder.add_node(f"{name}_analyze", analyze_observations)
     builder.add_node(f"{name}_conclusion", generate_conclusion)
 
-    builder.set_entry_point(f"{name}_check_limit")
+    builder.set_entry_point(f"{name}_init")
+    builder.add_edge(f"{name}_init", f"{name}_check_limit")
 
     builder.add_conditional_edges(
         f"{name}_check_limit",
