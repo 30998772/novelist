@@ -21,15 +21,22 @@ def _resolve(path: str, project_dir: str = "") -> Path:
 
 @regist_tool(
     title="读取文件",
-    description="读取小说项目中的任意文本文件并返回内容。路径相对于项目目录（书名/）。",
+    description="读取小说项目中的文本文件。可指定起始行和行数来只读部分文件。路径相对于项目目录（书名/）。",
 )
-def read_file(path: str, project_dir: str = "") -> str:
-    """Read a text file from the novel project."""
+def read_file(path: str, project_dir: str = "", offset: int = 0, limit: int = 0) -> str:
+    """Read a text file, optionally with line range."""
     p = _resolve(path, project_dir)
     if not p.exists():
         return f"（文件不存在: {p}）"
     try:
-        return p.read_text(encoding="utf-8")
+        content = p.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        if offset > 0 or limit > 0:
+            end = offset + limit if limit > 0 else len(lines)
+            selected = lines[offset:end]
+            total = len(lines)
+            return f"（第{offset+1}-{min(end, total)}行/共{total}行）\n" + "\n".join(selected)
+        return content
     except Exception as exc:
         return f"（读取失败: {exc}）"
 
@@ -88,9 +95,9 @@ def search_files(pattern: str, directory: str = "", project_dir: str = "") -> st
 
 @regist_tool(
     title="列出文件",
-    description="列出项目目录结构。",
+    description="列出项目目录结构。可指定最大深度。",
 )
-def list_files(directory: str = "", pattern: str = "*", project_dir: str = "") -> str:
+def list_files(directory: str = "", pattern: str = "*", project_dir: str = "", max_depth: int = 3) -> str:
     """List files under directory matching glob pattern."""
     root = _resolve(directory, project_dir)
     if not root.exists():
@@ -99,7 +106,8 @@ def list_files(directory: str = "", pattern: str = "*", project_dir: str = "") -
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in {".git", ".venv", "__pycache__", ".idea"}]
         depth = dirpath[len(str(root)):].count(os.sep)
-        if depth > 4:
+        if depth >= max_depth:
+            dirnames.clear()
             continue
         rel_head = os.path.relpath(dirpath, root).replace("\\", "/")
         prefix = "  " * depth

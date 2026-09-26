@@ -13,16 +13,11 @@ from langgraph.graph.message import add_messages
 class DraftState(TypedDict, total=False):
     """创作子图状态：章节正文写作与设定补充。"""
 
-    # 消息队列
     messages: Annotated[List[BaseMessage], add_messages]
     history: Optional[List[BaseMessage]]
-
-    # 任务
     task: str
-
-    # 创作产物
-    draft: str                    # 章节草稿
-    outline: str                  # 大纲（参考用）
+    draft: str
+    outline: str
 
 
 NODE_NAME = "draft"

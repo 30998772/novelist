@@ -1,3 +1,4 @@
+
 """Skill 工具：scene-description（源自 .opencode/skills/scene-description/SKILL.md）。"""
 
 from ._runner import run_skill

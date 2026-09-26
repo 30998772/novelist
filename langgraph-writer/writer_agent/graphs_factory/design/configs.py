@@ -12,9 +12,9 @@ class DesignState(TypedDict, total=False):
     messages: Annotated[List[BaseMessage], add_messages]
     history: Optional[List[BaseMessage]]
     task: str
-    project_dir: str          # 项目目录
-    outline: str              # 大纲
-    brainstorm_draft: str     # 头脑风暴草案（参考用）
+    project_dir: str
+    outline: str
+    brainstorm_draft: str
 
     # 推理循环字段
     findings: str                    # 全局发现
