@@ -30,7 +30,8 @@ class NovelistState(TypedDict, total=False):
     messages: Annotated[List[BaseMessage], add_messages]
     history: Optional[List[BaseMessage]]
 
-    # 意图识别
+    # 计划 / 意图识别
+    plan: List[dict]
     intent_list: List[str]
     current_intent: str
     intent_index: int
@@ -48,11 +49,10 @@ NODES = {
     "history": "history_manager",
     "intent": "intent_recognition",
     "clarify": "ask_clarification",
-    "dispatch": "dispatch_next",
     "generic": "subgraph_generic",
+    "confirm": "confirm_step",
     "collect": "collect_results",
-    "chatbot": "chatbot",
-    "tools": "tools",
+    "summarize": "summarize_results",
 }
 
 ENTRY = "history"
@@ -60,24 +60,23 @@ ENTRY = "history"
 EDGES = [
     ["history", "intent"],
     ["clarify", END],
-    ["generic", "dispatch"],
-    ["collect", "chatbot"],
-    ["tools", "chatbot"],
+    ["generic", "confirm"],
+    ["collect", "summarize"],
+    ["summarize", END],
 ]
 
 ROUTES = {
     "clarify": "ask_clarification",
-    "dispatch": "dispatch_next",
     "collect": "collect_results",
     "generic": "subgraph_generic",
+    "confirm": "confirm_step",
 }
 
 CONDITIONAL_EDGES = {
     "intent": {
         "router": "route_after_intent",
-        "map": {ROUTES["clarify"]: "clarify", ROUTES["dispatch"]: "dispatch"},
+        "map": {ROUTES["clarify"]: "clarify", ROUTES["generic"]: "generic"},
     },
-    "chatbot": {"router": None, "map": None},
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -87,12 +86,17 @@ CONDITIONAL_EDGES = {
 STATE = {
     "messages": "messages",
     "history": "history",
+    "plan": "plan",
     "intents": "intent_list",
     "current": "current_intent",
     "index": "intent_index",
     "results": "intent_results",
     "clarify_count": "clarification_attempts",
     "task": "task",
+    "pending_confirm": "pending_confirm",
+    "feedback": "step_feedback",
+    "attempts": "step_attempts",
+    "retry_current": "retry_current",
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -150,3 +154,22 @@ SUBGRAPHS = {
 
 MAX_CLARIFICATION_ATTEMPTS = 3
 FALLBACK_INTENTS: set[str] = set()
+
+# ════════════════════════════════════════════════════════════════
+# 子图逐步确认（human-in-the-loop）
+# ════════════════════════════════════════════════════════════════
+
+# 同一步最多允许用户要求重做几次，超过则强制跳过，避免无限重跑
+MAX_STEP_RETRY = 2
+
+# 用户回复归一化：命中即为采纳本步结果
+APPROVE_WORDS = {
+    "", "approve", "ok", "okay", "y", "yes", "good", "fine",
+    "通过", "确认", "采纳", "同意", "可以", "继续", "下一步", "没问题", "对", "是",
+}
+
+# 命中即为丢弃本步结果并重跑（不带具体意见）
+RETRY_WORDS = {"retry", "redo", "again", "重做", "重跑", "再来", "再来一次", "不行", "不满意"}
+
+# 命中即为丢弃本步结果并进入下一步
+SKIP_WORDS = {"skip", "next", "跳过", "略过", "下一个", "不管了"}

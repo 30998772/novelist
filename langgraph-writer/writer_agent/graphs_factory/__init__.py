@@ -2,7 +2,7 @@
 
 框架层（对齐 LangGraph-Chatchat graphs_factory）：
 - _shared（registry + chat_node）
-- novelist（BaseAgentGraph 基类 + NovelistGraph 主图：意图识别 → 子图分派 → chatbot ⇄ tools）
+- novelist（BaseAgentGraph 基类 + NovelistGraph 主图：意图识别 → 子图分派 → 收集 → summarize_results）
 - base_rag（BaseRagGraph：Agentic RAG，label="rag"）
 
 导入本模块即注册全部图到 graphs_registry。

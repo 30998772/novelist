@@ -80,13 +80,20 @@ class WriterState(TypedDict, total=False):
     # ---- 定稿阶段产物 ----
     final_content: str              # 最终输出
 
-    # ---- 意图识别 ----
-    intent_list: List[str]          # LLM识别出的意图列表
+    # ---- 计划 / 意图识别 ----
+    plan: List[dict]                 # LLM 输出的有序计划 [{"intent": 子图名, "task": 本步任务}]
+    intent_list: List[str]          # 由 plan 派生的子图名列表（兼容旧字段）
     current_intent: str             # 当前正在执行的意图
-    intent_index: int               # 当前执行到 intent_list 的第几个意图
-    intent_results: dict            # 各意图执行结果 {意图: 结果}
-    clarification_attempts: int     # 意图识别尝试次数
+    intent_index: int               # 当前执行到 plan 的第几步
+    intent_results: dict            # 各子图执行结果 {子图名: 结果}（仅含已确认采纳的）
+    clarification_attempts: int     # 计划生成失败次数
     user_continues: bool            # 用户是否继续对话
+
+    # ---- 子图逐步确认（human-in-the-loop）----
+    pending_confirm: dict           # 当前等待用户确认的汇报内容
+    step_feedback: dict             # 用户对各步的修改意见 {子图名: 意见}
+    step_attempts: dict             # 各步的重做次数 {子图名: 次数}，用于限制重做上限
+    retry_current: bool             # 下一步是否重跑当前步（由确认结果写入）
 
     # ---- 确定性校验（code 节点，不经 LLM） ----
     cjk_count: int                  # 草稿中文字符数 (字数校验节点计算)
