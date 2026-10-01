@@ -112,7 +112,7 @@ for f in glob.glob(os.path.join(ROOT,"**","*.md"), recursive=True):
 
 # ---------- E 字数 ----------
 print("="*70)
-print("【E】字数达成 (>=3500中文字)")
+print("【E】字数达成 (>=3500数字+符号)")
 grand_total = 0; grand_fail = 0
 for p in PARTS:
     counts = {n: cn(t[2]) for n,t in text_files[p].items()}

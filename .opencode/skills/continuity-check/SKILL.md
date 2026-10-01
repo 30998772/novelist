@@ -22,6 +22,57 @@ description: 一致性检查与伏笔追踪。当用户要排查前后矛盾、�
 - 用 Grep 工具按人名、地名、设定关键词全文检索，不要凭记忆抽查。
 - 章节数多时分批检查（每次 ≤10 章），汇总后统一报告。
 
+## 年龄链：单独拉表，不要抽查
+
+**年龄是最容易断裂、也最难一眼看出的设定。** 因为每章只写一次年龄，孤立地看每一章都成立；断裂只在跨章比对时才暴露。
+
+不要抽查。直接建表——每个角色 × 出现章节 × 声称年龄 × 章节内时间标记（年份/月份/事件序号），然后排序看斜率。
+
+```python
+import re, glob, collections
+AGE = r'(?:我|他|她)?\s*(\d{2})\s*(?:岁|岁了)'
+TBL = collections.defaultdict(list)
+for f in sorted(glob.glob('正文/*/*.md')):
+    t = open(f, encoding='utf-8').read()
+    # 章节内时间标记
+    stamp = re.findall(r'[一二三四五六七八九十〇\d]{4}\s*年', t)
+    for m in re.finditer(AGE, t):
+        for name in ['陆栖', '林越', '方知远', '苏晚', '周明远', '顾念', '陈国华', '苏念']:
+            if name in t[max(0,m.start()-60):m.end()+60]:
+                TBL[name].append((f, int(m.group(1)), stamp[:2]))
+for name, rows in TBL.items():
+    print('\n==', name)
+    for r in sorted(rows, key=lambda x: x[1]):
+        print('  %-40s %3d  %s' % (r[0][-28:], r[1], r[2]))
+```
+
+**看斜率**：同一角色在不同部的年龄必须单调递增。若某章比前文小很多，说明那一章的时间设定或年龄写错了。
+
+**不要擅自统一。** 年龄断裂往往牵扯剧情（某人三十岁做的某件事，六十岁时还能不能做），改一个数字可能推翻一整段因果。先列出冲突清单和改动影响面，由用户定。
+
+## 章节编号与大纲同步
+
+拆章/合章之后，以下三样必须同时更新，漏一样就是遗留 bug：
+
+1. `正文/` 下的文件名与标题行编号
+2. `章节大纲/第X部/逐章卡片.md`
+3. `章节大纲/总纲.md`
+
+校验：
+
+```python
+import re, glob
+for d in ['第一部','第二部','第三部','第四部','第五部','第六部']:
+    fs = glob.glob(f'正文/{d}/*.md')
+    ns = sorted(int(re.search(r'第(\d+)章', f).group(1)) for f in fs)
+    ok = ns == list(range(1, len(ns)+1))
+    titles = [re.search(r'# 第\d+章 (.+)', open(f,encoding='utf-8').read()).group(1) for f in fs]
+    print(d, len(fs), '编号连续' if ok else '编号断裂',
+          '重名' if len(set(titles)) != len(titles) else '')
+```
+
+**同一编号出现两个文件**是重排时的典型事故（改完顺序没删旧的）。查文件名，也查标题行里的编号，两个都要查。
+
 ## 报告格式
 
 ```
