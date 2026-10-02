@@ -28,23 +28,18 @@ description: 一致性检查与伏笔追踪。当用户要排查前后矛盾、�
 
 不要抽查。直接建表——每个角色 × 出现章节 × 声称年龄 × 章节内时间标记（年份/月份/事件序号），然后排序看斜率。
 
-```python
-import re, glob, collections
-AGE = r'(?:我|他|她)?\s*(\d{2})\s*(?:岁|岁了)'
-TBL = collections.defaultdict(list)
-for f in sorted(glob.glob('正文/*/*.md')):
-    t = open(f, encoding='utf-8').read()
-    # 章节内时间标记
-    stamp = re.findall(r'[一二三四五六七八九十〇\d]{4}\s*年', t)
-    for m in re.finditer(AGE, t):
-        for name in ['陆栖', '林越', '方知远', '苏晚', '周明远', '顾念', '陈国华', '苏念']:
-            if name in t[max(0,m.start()-60):m.end()+60]:
-                TBL[name].append((f, int(m.group(1)), stamp[:2]))
-for name, rows in TBL.items():
-    print('\n==', name)
-    for r in sorted(rows, key=lambda x: x[1]):
-        print('  %-40s %3d  %s' % (r[0][-28:], r[1], r[2]))
+```bash
+python3 reference/audit.py --ages
 ```
+
+**三条必须遵守的方法纪律：**
+
+1. **正则必须支持汉字数字。** 中文稿极少写「54岁」，多写「五十四岁」。
+   只匹配 `\d{2}岁` 会漏掉绝大多数年龄。
+2. **不要用 ±N 字上下文窗口自动归属。** 实测 70 字窗口会把第三部 063 的
+   「八十二岁」记到陆栖头上——那句话说的是另一个角色。
+   **正确做法：只输出「所在句 + 同句出现的人名」，归属由人判断。**
+3. **不擅自统一。** 年龄断裂牵扯剧情，改一个数字可能推翻一整段因果。
 
 **看斜率**：同一角色在不同部的年龄必须单调递增。若某章比前文小很多，说明那一章的时间设定或年龄写错了。
 
